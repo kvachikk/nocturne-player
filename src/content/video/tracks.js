@@ -2,6 +2,7 @@ import { findCueText, parseSubtitles } from '../../lib/subtitles.js';
 
 const CUE_LOAD_RETRY_MS = 300;
 const CUE_LOAD_ATTEMPTS = 10;
+const ADOPT_RETRY_MS = 600;
 
 const describe = (track, index) =>
   track.label || track.language || `Track ${index + 1}`;
@@ -31,7 +32,7 @@ const loadTrackCues = (track, onReady) => {
   poll();
 };
 
-export const createTrackManager = (video, onCue) => {
+export const createTrackManager = (video, onCue, onSelection) => {
   const loaded = [];
 
   let cues = [];
@@ -72,6 +73,7 @@ export const createTrackManager = (video, onCue) => {
     selected = id;
     cues = [];
     emit('');
+    onSelection(id);
 
     if (id === -1) {
       silenceAll();
@@ -108,8 +110,24 @@ export const createTrackManager = (video, onCue) => {
     return id;
   };
 
+  // A site that ships <track default> already has Gecko painting cues. Adopt
+  // that track so it renders through our own layer instead of underneath the
+  // controls, and so the menu tells the truth about what is on.
+  const adoptShowingTrack = () => {
+    if (selected !== -1) return true;
+    const tracks = nativeTracks();
+    for (let index = 0; index < tracks.length; index++) {
+      if (tracks[index].mode !== 'showing') continue;
+      select(index);
+      return true;
+    }
+    return false;
+  };
+
   video.addEventListener('timeupdate', update);
   video.addEventListener('seeked', update);
+
+  if (!adoptShowingTrack()) setTimeout(adoptShowingTrack, ADOPT_RETRY_MS);
 
   return {
     list,

@@ -154,6 +154,7 @@ export const createMenu = ({
     toggle: () => root.classList.toggle('is-open'),
     close: () => root.classList.remove('is-open'),
     isOpen: () => root.classList.contains('is-open'),
+    setSubtitle: (id) => subtitles.setActive(id),
     refreshSubtitles: (id) => {
       const options = [{ id: -1, label: 'Off' }, ...tracks.list()];
       const rebuilt = buildChips('Subtitles', options, (next) =>

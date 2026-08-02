@@ -180,6 +180,7 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
       onExit: exit,
       settings,
       onPersist,
+      wasPlaying: state.wasPlaying,
     });
 
     stallTimer = setTimeout(() => {
