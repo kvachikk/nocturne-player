@@ -172,7 +172,13 @@ export const createSession = (video, { onExit }) => {
     });
 
     mount();
-    overlay = createOverlay({ video, shadow: ui.shadow, layers, onExit: exit });
+    overlay = createOverlay({
+      video,
+      stage,
+      shadow: ui.shadow,
+      layers,
+      onExit: exit,
+    });
 
     stallTimer = setTimeout(() => {
       stallTimer = null;

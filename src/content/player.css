@@ -69,7 +69,8 @@
   padding: 0;
   border: 0;
   border-radius: 12px;
-  background: rgba(20, 18, 32, 0.55);
+  background: rgba(22, 21, 28, 0.42);
+  backdrop-filter: blur(14px);
   color: inherit;
   cursor: pointer;
   transition:
@@ -82,8 +83,8 @@
 }
 
 .button[aria-pressed='true'] {
-  background: rgba(255, 196, 107, 0.9);
-  color: #17131f;
+  background: rgba(236, 236, 242, 0.9);
+  color: #16151c;
 }
 
 .button svg {
@@ -222,7 +223,8 @@
   transform: translate(-50%, -50%) scale(0.9);
   padding: 10px 18px;
   border-radius: 14px;
-  background: rgba(18, 16, 31, 0.82);
+  background: rgba(20, 19, 26, 0.62);
+  backdrop-filter: blur(18px);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
   opacity: 0;
@@ -235,4 +237,138 @@
 .toast.is-visible {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
+}
+
+/* Kept clear of the volume strip that runs down the right edge. */
+.panel {
+  position: absolute;
+  top: 60px;
+  right: calc(max(10px, env(safe-area-inset-right)) + 56px);
+  width: min(330px, 50vw);
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(20, 19, 26, 0.66);
+  backdrop-filter: blur(22px);
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.panel.is-open {
+  display: flex;
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-label {
+  flex: 1;
+  font-size: 13px;
+}
+
+.step-value {
+  flex: none;
+  width: 52px;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.step-button {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.step-button:active {
+  background: rgba(236, 236, 242, 0.9);
+  color: #16151c;
+}
+
+.step-button:disabled {
+  opacity: 0.3;
+}
+
+.step-reset {
+  align-self: flex-end;
+  margin-top: 2px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.lock-veil {
+  display: none;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.lock-veil.is-active {
+  display: block;
+}
+
+.lock-pill {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  width: min(280px, 52vw);
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(20, 19, 26, 0.6);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.lock-pill.is-shown {
+  opacity: 1;
+}
+
+.lock-knob {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.lock-knob svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.lock-label {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.7;
 }

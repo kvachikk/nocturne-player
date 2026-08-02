@@ -11,10 +11,13 @@ const buildButton = () =>
     { class: 'badge', type: 'button', title: 'Open in Nocturne Player' },
     [
       el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-        el('path', { d: 'M8 6.5 17 12l-9 5.5z', fill: '#f4f1ff' }),
+        el('path', {
+          d: 'M8 6.5 17 12l-9 5.5z',
+          fill: 'rgba(244,241,255,0.92)',
+        }),
         el('path', {
           d: 'M20.5 3.2a3.2 3.2 0 1 0 .6 5.9 3.6 3.6 0 0 1-.6-5.9z',
-          fill: '#ffc46b',
+          fill: 'rgba(244,241,255,0.5)',
         }),
       ]),
     ],
