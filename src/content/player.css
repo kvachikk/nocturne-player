@@ -363,7 +363,7 @@
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: clamp(60px, 14vw, 160px);
+  gap: clamp(48px, 11vw, 128px);
   pointer-events: none;
 }
 
