@@ -1,0 +1,35 @@
+name: Bug report
+description: Something does not work
+labels: [bug]
+body:
+  - type: input
+    id: site
+    attributes:
+      label: Site
+      description: The page the video was on. Leave blank if you would rather not.
+    validations:
+      required: false
+
+  - type: input
+    id: firefox
+    attributes:
+      label: Firefox version
+      placeholder: '142.0 on Android 15'
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Confirm
+      options:
+        - label: This is not YouTube, Vimeo or TikTok (out of scope by design)
+          required: true
