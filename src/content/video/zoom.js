@@ -1,5 +1,4 @@
 export const MIN_SCALE = 1;
-export const MAX_SCALE = 3;
 export const SNAP_TOLERANCE = 0.04;
 
 // With object-fit: contain the picture is letterboxed; this is the factor that
@@ -21,8 +20,10 @@ export const computeCoverScale = (
   return Number.isFinite(ratio) ? ratio : 1;
 };
 
-export const clampScale = (scale) =>
-  Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
+// Zooming stops exactly where the black bars disappear: going further would
+// only crop the picture for no reason.
+export const clampScale = (scale, maxScale) =>
+  Math.min(Math.max(MIN_SCALE, maxScale), Math.max(MIN_SCALE, scale));
 
 export const snapScale = (scale, targets) => {
   for (const target of targets) {

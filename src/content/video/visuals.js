@@ -7,9 +7,17 @@ const TRANSFORM_TRANSITION = 'transform 220ms ease';
 
 // Every filter function is always present and always in the same order, so the
 // browser can interpolate between two states and the pause fade stays smooth.
-const buildFilter = ({ grayscale, saturate, contrast, brightness }) =>
-  `grayscale(${grayscale}) saturate(${saturate}) ` +
-  `contrast(${contrast}) brightness(${brightness})`;
+const buildFilter = ({ grayscale, saturate, contrast, brightness }) => {
+  // Untouched settings mean no filter at all, so the film is passed through
+  // exactly as the site encoded it.
+  const isNeutral =
+    grayscale === 0 && saturate === 1 && contrast === 1 && brightness === 1;
+  if (isNeutral) return 'none';
+  return (
+    `grayscale(${grayscale}) saturate(${saturate}) ` +
+    `contrast(${contrast}) brightness(${brightness})`
+  );
+};
 
 export const createVisuals = (video, stage, wasPlaying) => {
   const colour = { saturate: 1, contrast: 1, brightness: 1 };
@@ -31,8 +39,9 @@ export const createVisuals = (video, stage, wasPlaying) => {
       contrast: colour.contrast,
       brightness: colour.brightness * (isFaded ? PAUSE_BRIGHTNESS : 1),
     });
+    const isUnzoomed = view.scale === 1 && view.x === 0 && view.y === 0;
     const offset = `translate(${view.x}px, ${view.y}px)`;
-    const transform = `${offset} scale(${view.scale})`;
+    const transform = isUnzoomed ? 'none' : `${offset} scale(${view.scale})`;
     const transition = isPinching
       ? FILTER_TRANSITION
       : `${FILTER_TRANSITION}, ${TRANSFORM_TRANSITION}`;
@@ -55,7 +64,7 @@ export const createVisuals = (video, stage, wasPlaying) => {
       size.width,
       size.height,
     );
-    view.scale = snapScale(clampScale(scale), [1, cover]);
+    view.scale = snapScale(clampScale(scale, cover), [1, cover]);
     const pan = clampPan(view.x, view.y, view.scale, size.width, size.height);
     view.x = pan.x;
     view.y = pan.y;

@@ -31,10 +31,15 @@ test('cover scale falls back to 1 on unusable dimensions', () => {
   assert.equal(computeCoverScale(100, 100, 0, 0), 1);
 });
 
-test('scale is clamped to the allowed range', () => {
-  assert.equal(clampScale(0.2), 1);
-  assert.equal(clampScale(1.8), 1.8);
-  assert.equal(clampScale(12), 3);
+test('scale is clamped between fit and the fill scale', () => {
+  assert.equal(clampScale(0.2, 1.6), 1);
+  assert.equal(clampScale(1.4, 1.6), 1.4);
+  assert.equal(clampScale(12, 1.6), 1.6);
+});
+
+test('a picture that already fits cannot be zoomed at all', () => {
+  assert.equal(clampScale(2, 1), 1);
+  assert.equal(clampScale(2, 0.5), 1);
 });
 
 test('scale snaps to a nearby target and leaves others alone', () => {
