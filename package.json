@@ -1,0 +1,62 @@
+{
+  "name": "nocturne-player",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A touch-first video player for Firefox on Android",
+  "license": "MPL-2.0",
+  "author": "Vlad Pohorilets",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kvachikk/nocturne-player.git"
+  },
+  "homepage": "https://github.com/kvachikk/nocturne-player",
+  "bugs": {
+    "url": "https://github.com/kvachikk/nocturne-player/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "build:clean": "node esbuild.config.mjs --clean",
+    "package": "npm run build && web-ext build -s dist -a artifacts --overwrite-dest",
+    "start": "npm run build && web-ext run -s dist",
+    "start:android": "npm run build && web-ext run -s dist -t firefox-android --firefox-apk org.mozilla.firefox --firefox-apk-component .AppSolidDark",
+    "lint": "eslint . && prettier --check \"**/*.{js,mjs,json,md,css,html}\" && npm run lint:ext && npm run lint:privacy",
+    "lint:ext": "npm run build && web-ext lint -s dist",
+    "lint:privacy": "node tools/check-privacy.mjs",
+    "fix": "eslint . --fix && prettier --write \"**/*.{js,mjs,json,md,css,html}\"",
+    "test": "node --test",
+    "fixture": "node tools/make-fixture.mjs",
+    "serve": "node tools/serve.mjs",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,html}": [
+      "prettier --write"
+    ],
+    "src/**": [
+      "node tools/check-privacy.mjs"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.1",
+    "@commitlint/config-conventional": "21.2.0",
+    "esbuild": "0.28.1",
+    "eslint": "9.39.5",
+    "eslint-config-metarhia": "9.1.9",
+    "globals": "14.0.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.3.0",
+    "prettier": "3.8.2",
+    "web-ext": "10.5.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}
