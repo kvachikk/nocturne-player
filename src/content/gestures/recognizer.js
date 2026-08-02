@@ -185,6 +185,11 @@ export const createRecognizer = (surface, handlers) => {
     if (pointers.size === 0) mode = MODE.IDLE;
   };
 
+  // Without this, a long press raises the system context menu and Gecko
+  // cancels the pointer, which used to drop hold-to-2x after a second or two.
+  const blockContextMenu = (event) => event.preventDefault();
+
+  surface.addEventListener('contextmenu', blockContextMenu);
   surface.addEventListener('pointerdown', handleDown);
   surface.addEventListener('pointermove', handleMove);
   surface.addEventListener('pointerup', handleUp);
@@ -197,6 +202,7 @@ export const createRecognizer = (surface, handlers) => {
     destroy: () => {
       clearHoldTimer();
       if (tapTimer !== null) clearTimeout(tapTimer);
+      surface.removeEventListener('contextmenu', blockContextMenu);
       surface.removeEventListener('pointerdown', handleDown);
       surface.removeEventListener('pointermove', handleMove);
       surface.removeEventListener('pointerup', handleUp);
