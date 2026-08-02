@@ -16,25 +16,27 @@ const REWIND_STEP_SECONDS = 0.2;
 const REWIND_TICK_MS = 100;
 const TOAST_MS = 900;
 const SKIP_SECONDS = 10;
-const MAX_DIM = 0.75;
-const DEFAULT_WARMTH = 0.35;
+const FILL_RETRY_MS = 400;
 
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
-  night: 'M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z',
   colour:
     'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z',
   pip: 'M3 5h18v14H3zM12 12h7v5h-7z',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  play: 'M8 5.5 18 12 8 18.5z',
+  pause: 'M9 5v14M15 5v14',
 };
 
-const buildButton = (label, path, onClick) => {
-  const icon = el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+const buildIcon = (path) =>
+  el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
     el('path', { d: path }),
   ]);
-  const attributes = { class: 'button', type: 'button', title: label };
-  const button = el('button', attributes, [icon]);
+
+const buildButton = (label, path, onClick, className = 'button') => {
+  const attributes = { class: className, type: 'button', title: label };
+  const button = el('button', attributes, [buildIcon(path)]);
   button.addEventListener('click', onClick);
   return button;
 };
@@ -47,6 +49,7 @@ export const createOverlay = ({
   onExit,
   settings,
   onPersist,
+  wasPlaying,
 }) => {
   const surface = el('div', { class: 'layer surface' });
   const toast = el('div', { class: 'toast' });
@@ -59,15 +62,27 @@ export const createOverlay = ({
     accept: '.srt,.vtt,text/vtt',
   });
 
-  // Applied before the menu is built so its chips reflect the restored rate.
-  video.playbackRate = settings.playbackRate;
+  // Late-bound: buttons, the recognizer and the track manager all need to refer
+  // to things created after them.
+  const buttons = { colour: null, menu: null, play: null };
+  const menuRef = { setSubtitle: () => {} };
+  const gate = { setEnabled: () => {} };
 
-  const visuals = createVisuals(video, stage);
+  // Playback speed is deliberately not restored: it belongs to the film you
+  // were watching, not to the next one.
+  video.playbackRate = 1;
+
+  const visuals = createVisuals(video, stage, wasPlaying);
   const quality = createQuality(video);
-  const tracks = createTrackManager(video, (text) => {
-    cueBox.textContent = text;
-    cueBox.classList.toggle('is-visible', text !== '');
-  });
+  const tracks = createTrackManager(
+    video,
+    (text) => {
+      cueBox.textContent = text;
+      cueBox.classList.toggle('is-visible', text !== '');
+    },
+    (id) => menuRef.setSubtitle(id),
+  );
+
   const seekBar = createSeekBar(video);
   const volume = createEdgeStrip({
     side: 'right',
@@ -78,28 +93,12 @@ export const createOverlay = ({
       video.volume = value;
     },
   });
-  const dimStrip = createEdgeStrip({
-    side: 'left',
-    topGlyph: '☀',
-    bottomGlyph: '☾',
-    onChange: (value) => {
-      const dim = (1 - value) * MAX_DIM;
-      layers.dim.style.opacity = String(dim);
-      onPersist({ dim });
-    },
-  });
-
-  // Late-bound so buttons and the recognizer can refer to each other without
-  // either having to exist first.
-  const buttons = { night: null, colour: null, menu: null };
-  const gate = { setEnabled: () => {} };
 
   let chromeTimer = null;
   let rewindTimer = null;
   let toastTimer = null;
   let restingRate = video.playbackRate;
   let pinchBase = 1;
-  let warmth = 0;
 
   const showToast = (text) => {
     toast.textContent = text;
@@ -111,21 +110,54 @@ export const createOverlay = ({
     }, TOAST_MS);
   };
 
+  const applyWarmth = (value) => {
+    layers.warm.style.opacity = String(value);
+  };
+
+  const colorPanel = createColorPanel((key, value) => {
+    if (key === 'warmth') applyWarmth(value);
+    else visuals.setColour({ [key]: value });
+    onPersist({ [key]: value });
+  });
+
+  const menu = createMenu({
+    video,
+    tracks,
+    quality,
+    onStyle: ({ scale }) => {
+      cueBox.style.setProperty('--cue-scale', String(scale));
+      onPersist({ subtitleScale: scale });
+    },
+    onPickFile: () => filePicker.click(),
+    onRate: (rate) => {
+      restingRate = rate;
+    },
+  });
+
+  menuRef.setSubtitle = menu.setSubtitle;
+
+  const isPanelOpen = () => colorPanel.isOpen() || menu.isOpen();
+
+  // The chrome must never fade out from under an open panel: the panel lives
+  // inside it, and hiding it mid-adjustment looked like the player had frozen.
   const setChromeVisible = (isVisible) => {
     chrome.toggleAttribute('hidden', !isVisible);
     if (chromeTimer !== null) clearTimeout(chromeTimer);
     chromeTimer = null;
-    if (!isVisible || video.paused) return;
+    if (!isVisible || video.paused || isPanelOpen()) return;
     chromeTimer = setTimeout(() => {
       chromeTimer = null;
       chrome.toggleAttribute('hidden', true);
     }, CHROME_IDLE_MS);
   };
 
-  const applyWarmth = (value) => {
-    warmth = value;
-    layers.warm.style.opacity = String(value);
-    buttons.night?.setAttribute('aria-pressed', String(value > 0));
+  const closePanels = () => {
+    colorPanel.close();
+    menu.close();
+    visuals.suppressFade(false);
+    buttons.colour?.setAttribute('aria-pressed', 'false');
+    buttons.menu?.setAttribute('aria-pressed', 'false');
+    setChromeVisible(true);
   };
 
   const togglePlay = () => {
@@ -158,79 +190,27 @@ export const createOverlay = ({
     }, REWIND_TICK_MS);
   };
 
-  const colorPanel = createColorPanel((key, value) => {
-    if (key === 'warmth') applyWarmth(value);
-    else visuals.setColour({ [key]: value });
-    onPersist({ [key]: value });
-  });
-
   const lock = createLock(() => {
     gate.setEnabled(true);
     setChromeVisible(true);
   });
 
-  const menu = createMenu({
-    video,
-    tracks,
-    quality,
-    onStyle: ({ scale }) => {
-      cueBox.style.setProperty('--cue-scale', String(scale));
-      onPersist({ subtitleScale: scale });
-    },
-    onPickFile: () => filePicker.click(),
-    onRate: (rate) => {
-      restingRate = rate;
-      onPersist({ playbackRate: rate });
-    },
-  });
-
-  // The Android file picker drops fullscreen, so the player re-enters once the
-  // file has been read.
-  filePicker.addEventListener('change', async () => {
-    const file = filePicker.files?.[0];
-    filePicker.value = '';
-    if (!file) return;
-    try {
-      const id = tracks.addCues(file.name, await file.text());
-      if (id === null) {
-        showToast('No cues found');
-        return;
-      }
-      tracks.select(id);
-      menu.refreshSubtitles(id);
-      showToast(file.name);
-    } catch (error) {
-      console.error('Nocturne: could not read subtitles', error);
-      showToast('Could not read that file');
-    }
-    if (document.fullscreenElement !== stage) {
-      stage.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
-    }
-  });
-
-  const closePanel = () => {
-    colorPanel.close();
-    menu.close();
-    buttons.colour?.setAttribute('aria-pressed', 'false');
-    buttons.menu?.setAttribute('aria-pressed', 'false');
-  };
-
-  const dragTargets = {
-    [ZONE.SEEK]: seekBar,
-    [ZONE.VOLUME]: volume,
-    [ZONE.DIM]: dimStrip,
-  };
+  const dragTargets = { [ZONE.SEEK]: seekBar, [ZONE.VOLUME]: volume };
 
   const recognizer = createRecognizer(surface, {
     tap: ({ zone }) => {
-      if (colorPanel.isOpen() || menu.isOpen()) {
-        closePanel();
+      if (isPanelOpen()) {
+        closePanels();
         return;
       }
       if (zone === ZONE.PAUSE) togglePlay();
       else setChromeVisible(chrome.hasAttribute('hidden'));
     },
     multiTap: ({ zone, count }) => {
+      if (isPanelOpen()) {
+        closePanels();
+        return;
+      }
       const seconds = (count - 1) * SKIP_SECONDS;
       if (zone === ZONE.HOLD_LEFT) skip(-seconds);
       else if (zone === ZONE.HOLD_RIGHT) skip(seconds);
@@ -262,34 +242,40 @@ export const createOverlay = ({
     pinchMove: ({ scale }) => visuals.pinchTo(pinchBase * scale),
     pinchEnd: () => {
       const scale = visuals.endPinch();
-      showToast(scale === 1 ? 'Fit' : `${scale.toFixed(2)}x`);
+      showToast(scale === 1 ? 'Fit' : 'Filled');
     },
   });
 
   gate.setEnabled = recognizer.setEnabled;
 
-  buttons.night = buildButton('Night light', ICON.night, () => {
-    applyWarmth(warmth > 0 ? 0 : DEFAULT_WARMTH);
-    colorPanel.setValue('warmth', warmth);
-    onPersist({ warmth });
-  });
+  buttons.play = buildButton(
+    'Play or pause',
+    video.paused ? ICON.play : ICON.pause,
+    togglePlay,
+    'play-button',
+  );
 
   buttons.colour = buildButton('Colour', ICON.colour, () => {
     menu.close();
     buttons.menu.setAttribute('aria-pressed', 'false');
     colorPanel.toggle();
-    buttons.colour.setAttribute('aria-pressed', String(colorPanel.isOpen()));
+    const isOpen = colorPanel.isOpen();
+    buttons.colour.setAttribute('aria-pressed', String(isOpen));
+    visuals.suppressFade(isOpen);
+    setChromeVisible(true);
   });
 
   buttons.menu = buildButton('Settings', ICON.menu, () => {
     colorPanel.close();
+    visuals.suppressFade(false);
     buttons.colour.setAttribute('aria-pressed', 'false');
     menu.toggle();
     buttons.menu.setAttribute('aria-pressed', String(menu.isOpen()));
+    setChromeVisible(true);
   });
 
   const lockButton = buildButton('Lock controls', ICON.lock, () => {
-    closePanel();
+    closePanels();
     lock.engage();
     setChromeVisible(false);
     recognizer.setEnabled(false);
@@ -298,7 +284,6 @@ export const createOverlay = ({
   topbar.append(
     buildButton('Exit player', ICON.exit, () => onExit()),
     el('div', { class: 'spacer' }),
-    buttons.night,
     buttons.colour,
     lockButton,
     buttons.menu,
@@ -310,20 +295,23 @@ export const createOverlay = ({
     const pip = buildButton('Picture in picture', ICON.pip, () => {
       video.requestPictureInPicture().catch(() => {});
     });
-    topbar.insertBefore(pip, buttons.night);
+    topbar.insertBefore(pip, buttons.colour);
   }
 
   chrome.append(
     topbar,
+    buttons.play,
     colorPanel.root,
     menu.root,
     seekBar.root,
     volume.root,
-    dimStrip.root,
   );
 
   const handlePlaybackChange = () => {
     visuals.setPaused(video.paused);
+    buttons.play.replaceChildren(
+      buildIcon(video.paused ? ICON.play : ICON.pause),
+    );
     setChromeVisible(true);
   };
   video.addEventListener('pause', handlePlaybackChange);
@@ -340,13 +328,17 @@ export const createOverlay = ({
     }
     applyWarmth(settings.warmth);
     cueBox.style.setProperty('--cue-scale', String(settings.subtitleScale));
-    dimStrip.set(1 - settings.dim / MAX_DIM);
-    layers.dim.style.opacity = String(settings.dim);
+  };
+
+  // Black bars cropped from the start; metadata may not have arrived yet.
+  const fillWhenReady = () => {
+    if (visuals.fillScreen()) return;
+    setTimeout(fillWhenReady, FILL_RETRY_MS);
   };
 
   volume.set(video.volume);
-  dimStrip.set(1);
   restoreSettings();
+  fillWhenReady();
   shadow.append(surface, cueBox, chrome, lock.veil, toast, filePicker);
   setChromeVisible(true);
 

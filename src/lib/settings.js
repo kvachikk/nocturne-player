@@ -7,8 +7,6 @@ export const DEFAULTS = Object.freeze({
   brightness: 1,
   contrast: 1,
   saturate: 1,
-  dim: 0,
-  playbackRate: 1,
   doubleTapSeconds: 10,
   holdSpeed: 2,
   isAutoLandscapeOn: true,

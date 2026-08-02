@@ -1,7 +1,6 @@
 export const ZONE = {
   SEEK: 'seek',
   VOLUME: 'volume',
-  DIM: 'dim',
   PAUSE: 'pause',
   HOLD_LEFT: 'holdLeft',
   HOLD_RIGHT: 'holdRight',
@@ -36,7 +35,6 @@ export const hitTest = (x, y, width, height) => {
   if (x >= width - EDGE_STRIP_PX && isWithinEdgeBand(y, height)) {
     return ZONE.VOLUME;
   }
-  if (x <= EDGE_STRIP_PX && isWithinEdgeBand(y, height)) return ZONE.DIM;
 
   for (const box of BOXES) {
     if (isInsideBox(box, x, y, width, height)) return box.zone;
@@ -44,8 +42,7 @@ export const hitTest = (x, y, width, height) => {
   return ZONE.DEAD;
 };
 
-export const isDragZone = (zone) =>
-  zone === ZONE.SEEK || zone === ZONE.VOLUME || zone === ZONE.DIM;
+export const isDragZone = (zone) => zone === ZONE.SEEK || zone === ZONE.VOLUME;
 
 export const isHoldZone = (zone) =>
   zone === ZONE.HOLD_LEFT || zone === ZONE.HOLD_RIGHT;
