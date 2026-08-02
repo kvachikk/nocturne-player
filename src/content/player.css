@@ -327,13 +327,10 @@
   opacity: 1;
 }
 
+/* A flex child of the centre row, so it lines up with the skip buttons. */
 .play-button {
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 114px;
   height: 114px;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -353,7 +350,7 @@
   display: block;
   fill: currentColor;
   stroke: currentColor;
-  stroke-width: 3.4;
+  stroke-width: 2.4;
   stroke-linejoin: round;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -372,6 +369,11 @@
 
 .centre-row > * {
   pointer-events: auto;
+}
+
+/* Hidden controls must not swallow a tap meant for the picture underneath. */
+.chrome[hidden] .centre-row > * {
+  pointer-events: none;
 }
 
 .play-button:active,

@@ -22,7 +22,7 @@ const ICON = {
   pip: 'M3 5h18v14H3zM12 12h7v5h-7z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
-  pause: 'M7.5 4.5h3.4v15H7.5zM13.1 4.5h3.4v15h-3.4z',
+  pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
 };
 
 const buildIcon = (path) =>
