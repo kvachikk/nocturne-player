@@ -2,7 +2,10 @@ import {
   isHostEnabled,
   onSettingsChanged,
   readSettings,
+  writeSettings,
 } from '../lib/settings.js';
+
+const PERSIST_DELAY_MS = 400;
 import { createBadge } from './controls/badge.js';
 import { createVideoWatcher } from './detect.js';
 import { createSession } from './session.js';
@@ -37,13 +40,28 @@ const start = async () => {
 
   const hosts = resolveHosts();
   let session = null;
+  let current = await readSettings();
+  let persistTimer = null;
 
   const badge = createBadge();
+
+  // Preferences are written back in one debounced batch: stepping a value five
+  // times should not mean five writes.
+  const persist = (patch) => {
+    current = { ...current, ...patch };
+    if (persistTimer !== null) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      writeSettings(patch);
+    }, PERSIST_DELAY_MS);
+  };
 
   badge.onActivate = async (video) => {
     if (session) return;
     badge.hide();
     session = createSession(video, {
+      settings: current,
+      onPersist: persist,
       onExit: () => {
         session = null;
         badge.show(video);
@@ -68,8 +86,11 @@ const start = async () => {
     }
   };
 
-  apply(await readSettings());
-  onSettingsChanged(apply);
+  apply(current);
+  onSettingsChanged((next) => {
+    current = next;
+    apply(next);
+  });
 
   browser.runtime.onMessage.addListener((message) => {
     if (message?.type !== 'query-state') return false;

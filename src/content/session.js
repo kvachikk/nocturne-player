@@ -94,7 +94,7 @@ const unlockOrientation = () => {
   }
 };
 
-export const createSession = (video, { onExit }) => {
+export const createSession = (video, { onExit, settings, onPersist }) => {
   const state = captureVideoState(video);
   const anchor = document.createComment('nocturne-player');
   const stage = document.createElement('div');
@@ -178,6 +178,8 @@ export const createSession = (video, { onExit }) => {
       shadow: ui.shadow,
       layers,
       onExit: exit,
+      settings,
+      onPersist,
     });
 
     stallTimer = setTimeout(() => {

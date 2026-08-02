@@ -1,8 +1,11 @@
 import { createColorPanel } from './controls/colorpanel.js';
 import { createEdgeStrip } from './controls/edgestrip.js';
 import { createLock } from './controls/lock.js';
+import { createMenu } from './controls/menu.js';
+import { createQuality } from './video/quality.js';
 import { createRecognizer } from './gestures/recognizer.js';
 import { createSeekBar } from './controls/seekbar.js';
+import { createTrackManager } from './video/tracks.js';
 import { createVisuals } from './video/visuals.js';
 import { el } from './shell.js';
 import { ZONE } from './gestures/zones.js';
@@ -23,6 +26,7 @@ const ICON = {
     'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z',
   pip: 'M3 5h18v14H3zM12 12h7v5h-7z',
+  menu: 'M4 7h16M4 12h16M4 17h16',
 };
 
 const buildButton = (label, path, onClick) => {
@@ -35,13 +39,35 @@ const buildButton = (label, path, onClick) => {
   return button;
 };
 
-export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
+export const createOverlay = ({
+  video,
+  stage,
+  shadow,
+  layers,
+  onExit,
+  settings,
+  onPersist,
+}) => {
   const surface = el('div', { class: 'layer surface' });
   const toast = el('div', { class: 'toast' });
   const topbar = el('div', { class: 'topbar' });
   const chrome = el('div', { class: 'chrome' });
+  const cueBox = el('div', { class: 'cue' });
+  const filePicker = el('input', {
+    type: 'file',
+    class: 'file-picker',
+    accept: '.srt,.vtt,text/vtt',
+  });
+
+  // Applied before the menu is built so its chips reflect the restored rate.
+  video.playbackRate = settings.playbackRate;
 
   const visuals = createVisuals(video, stage);
+  const quality = createQuality(video);
+  const tracks = createTrackManager(video, (text) => {
+    cueBox.textContent = text;
+    cueBox.classList.toggle('is-visible', text !== '');
+  });
   const seekBar = createSeekBar(video);
   const volume = createEdgeStrip({
     side: 'right',
@@ -57,13 +83,15 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
     topGlyph: '☀',
     bottomGlyph: '☾',
     onChange: (value) => {
-      layers.dim.style.opacity = String((1 - value) * MAX_DIM);
+      const dim = (1 - value) * MAX_DIM;
+      layers.dim.style.opacity = String(dim);
+      onPersist({ dim });
     },
   });
 
   // Late-bound so buttons and the recognizer can refer to each other without
   // either having to exist first.
-  const buttons = { night: null, colour: null };
+  const buttons = { night: null, colour: null, menu: null };
   const gate = { setEnabled: () => {} };
 
   let chromeTimer = null;
@@ -133,17 +161,59 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
   const colorPanel = createColorPanel((key, value) => {
     if (key === 'warmth') applyWarmth(value);
     else visuals.setColour({ [key]: value });
+    onPersist({ [key]: value });
   });
-
-  const closePanel = () => {
-    colorPanel.close();
-    buttons.colour?.setAttribute('aria-pressed', 'false');
-  };
 
   const lock = createLock(() => {
     gate.setEnabled(true);
     setChromeVisible(true);
   });
+
+  const menu = createMenu({
+    video,
+    tracks,
+    quality,
+    onStyle: ({ scale }) => {
+      cueBox.style.setProperty('--cue-scale', String(scale));
+      onPersist({ subtitleScale: scale });
+    },
+    onPickFile: () => filePicker.click(),
+    onRate: (rate) => {
+      restingRate = rate;
+      onPersist({ playbackRate: rate });
+    },
+  });
+
+  // The Android file picker drops fullscreen, so the player re-enters once the
+  // file has been read.
+  filePicker.addEventListener('change', async () => {
+    const file = filePicker.files?.[0];
+    filePicker.value = '';
+    if (!file) return;
+    try {
+      const id = tracks.addCues(file.name, await file.text());
+      if (id === null) {
+        showToast('No cues found');
+        return;
+      }
+      tracks.select(id);
+      menu.refreshSubtitles(id);
+      showToast(file.name);
+    } catch (error) {
+      console.error('Nocturne: could not read subtitles', error);
+      showToast('Could not read that file');
+    }
+    if (document.fullscreenElement !== stage) {
+      stage.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    }
+  });
+
+  const closePanel = () => {
+    colorPanel.close();
+    menu.close();
+    buttons.colour?.setAttribute('aria-pressed', 'false');
+    buttons.menu?.setAttribute('aria-pressed', 'false');
+  };
 
   const dragTargets = {
     [ZONE.SEEK]: seekBar,
@@ -153,7 +223,7 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
 
   const recognizer = createRecognizer(surface, {
     tap: ({ zone }) => {
-      if (colorPanel.isOpen()) {
+      if (colorPanel.isOpen() || menu.isOpen()) {
         closePanel();
         return;
       }
@@ -201,11 +271,21 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
   buttons.night = buildButton('Night light', ICON.night, () => {
     applyWarmth(warmth > 0 ? 0 : DEFAULT_WARMTH);
     colorPanel.setValue('warmth', warmth);
+    onPersist({ warmth });
   });
 
   buttons.colour = buildButton('Colour', ICON.colour, () => {
+    menu.close();
+    buttons.menu.setAttribute('aria-pressed', 'false');
     colorPanel.toggle();
     buttons.colour.setAttribute('aria-pressed', String(colorPanel.isOpen()));
+  });
+
+  buttons.menu = buildButton('Settings', ICON.menu, () => {
+    colorPanel.close();
+    buttons.colour.setAttribute('aria-pressed', 'false');
+    menu.toggle();
+    buttons.menu.setAttribute('aria-pressed', String(menu.isOpen()));
   });
 
   const lockButton = buildButton('Lock controls', ICON.lock, () => {
@@ -221,6 +301,7 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
     buttons.night,
     buttons.colour,
     lockButton,
+    buttons.menu,
   );
 
   // Firefox for Android has no Picture-in-Picture API yet, so the button
@@ -235,6 +316,7 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
   chrome.append(
     topbar,
     colorPanel.root,
+    menu.root,
     seekBar.root,
     volume.root,
     dimStrip.root,
@@ -247,9 +329,25 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
   video.addEventListener('pause', handlePlaybackChange);
   video.addEventListener('play', handlePlaybackChange);
 
+  const restoreSettings = () => {
+    visuals.setColour({
+      brightness: settings.brightness,
+      contrast: settings.contrast,
+      saturate: settings.saturate,
+    });
+    for (const key of ['brightness', 'contrast', 'saturate', 'warmth']) {
+      colorPanel.setValue(key, settings[key]);
+    }
+    applyWarmth(settings.warmth);
+    cueBox.style.setProperty('--cue-scale', String(settings.subtitleScale));
+    dimStrip.set(1 - settings.dim / MAX_DIM);
+    layers.dim.style.opacity = String(settings.dim);
+  };
+
   volume.set(video.volume);
   dimStrip.set(1);
-  shadow.append(surface, chrome, lock.veil, toast);
+  restoreSettings();
+  shadow.append(surface, cueBox, chrome, lock.veil, toast, filePicker);
   setChromeVisible(true);
 
   return {
@@ -257,6 +355,7 @@ export const createOverlay = ({ video, stage, shadow, layers, onExit }) => {
       recognizer.destroy();
       seekBar.destroy();
       lock.destroy();
+      tracks.destroy();
       stopRewind();
       if (chromeTimer !== null) clearTimeout(chromeTimer);
       if (toastTimer !== null) clearTimeout(toastTimer);

@@ -3,13 +3,11 @@ const SCHEMA_VERSION = 1;
 
 export const DEFAULTS = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
-  isNightLightOn: false,
-  nightLightIntensity: 0.35,
+  warmth: 0,
   brightness: 1,
   contrast: 1,
-  saturation: 1,
+  saturate: 1,
   dim: 0,
-  volume: 1,
   playbackRate: 1,
   doubleTapSeconds: 10,
   holdSpeed: 2,
@@ -17,9 +15,6 @@ export const DEFAULTS = Object.freeze({
   isFullscreenTakeoverOn: true,
   areEffectsReduced: false,
   subtitleScale: 1,
-  subtitleBackground: 'shadow',
-  subtitleOffset: 0,
-  subtitleSyncSeconds: 0,
   areSubtitlesNative: false,
   disabledHosts: [],
 });
