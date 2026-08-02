@@ -151,9 +151,13 @@ Two things worth knowing:
   The `start:android` script passes `--firefox-apk-component .AppSolidDark`;
   check `adb shell cmd package resolve-activity --brief -c \
 android.intent.category.LAUNCHER org.mozilla.firefox` if that ever changes.
-- `npm run build` overwrites `dist/` in place rather than recreating it,
-  because deleting the directory detaches the watcher that makes `web-ext run`
-  hot-reload. Use `npm run build:clean` for a from-scratch build.
+- `npm run build` overwrites `dist/` in place rather than recreating it.
+  **Do not run `npm run build:clean` while `web-ext run` is active**: deleting
+  the directory detaches its watcher, and web-ext then stops Firefox on the
+  device and exits. Use `build:clean` for CI and release builds only.
+- Re-opening the same URL on the phone only refocuses the tab, leaving the old
+  content script in place. Append a changing query (`?r=2`) to force a reload
+  after a rebuild.
 
 Debug with `about:debugging` on the desktop, connected to the device over USB.
 
