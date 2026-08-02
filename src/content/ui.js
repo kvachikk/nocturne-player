@@ -1,6 +1,4 @@
 import { createColorPanel } from './controls/colorpanel.js';
-import { createEdgeStrip } from './controls/edgestrip.js';
-import { createLock } from './controls/lock.js';
 import { createMenu } from './controls/menu.js';
 import { createQuality } from './video/quality.js';
 import { createRecognizer } from './gestures/recognizer.js';
@@ -11,9 +9,8 @@ import { el } from './shell.js';
 import { ZONE } from './gestures/zones.js';
 
 const CHROME_IDLE_MS = 3000;
-const HOLD_RATE = 2;
-const REWIND_STEP_SECONDS = 0.2;
-const REWIND_TICK_MS = 100;
+const SCRUB_STEP_SECONDS = 0.2;
+const SCRUB_TICK_MS = 100;
 const TOAST_MS = 900;
 const SKIP_SECONDS = 10;
 const FILL_RETRY_MS = 400;
@@ -22,11 +19,22 @@ const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
   colour:
     'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
-  lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z',
   pip: 'M3 5h18v14H3zM12 12h7v5h-7z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
   pause: 'M7.5 4.5h3.4v15H7.5zM13.1 4.5h3.4v15h-3.4z',
+};
+
+const buildIcon = (path) =>
+  el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+    el('path', { d: path }),
+  ]);
+
+const buildButton = (label, path, onClick, className = 'button') => {
+  const attributes = { class: className, type: 'button', title: label };
+  const button = el('button', attributes, [buildIcon(path)]);
+  button.addEventListener('click', onClick);
+  return button;
 };
 
 // A ring with an arrowhead and the number inside, the way phone players draw
@@ -56,18 +64,6 @@ const buildSkipIcon = (seconds) => {
   ]);
 };
 
-const buildIcon = (path) =>
-  el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
-    el('path', { d: path }),
-  ]);
-
-const buildButton = (label, path, onClick, className = 'button') => {
-  const attributes = { class: className, type: 'button', title: label };
-  const button = el('button', attributes, [buildIcon(path)]);
-  button.addEventListener('click', onClick);
-  return button;
-};
-
 export const createOverlay = ({
   video,
   stage,
@@ -93,7 +89,6 @@ export const createOverlay = ({
   // to things created after them.
   const buttons = { colour: null, menu: null, play: null };
   const menuRef = { setSubtitle: () => {} };
-  const gate = { setEnabled: () => {} };
 
   // Playback speed is deliberately not restored: it belongs to the film you
   // were watching, not to the next one.
@@ -111,21 +106,12 @@ export const createOverlay = ({
   );
 
   const seekBar = createSeekBar(video);
-  const volume = createEdgeStrip({
-    side: 'right',
-    topGlyph: '+',
-    bottomGlyph: '−',
-    onChange: (value) => {
-      video.muted = false;
-      video.volume = value;
-    },
-  });
 
   let chromeTimer = null;
-  let rewindTimer = null;
+  let scrubTimer = null;
   let toastTimer = null;
-  let restingRate = video.playbackRate;
   let pinchBase = 1;
+  let wasPlayingBeforeScrub = false;
 
   const showToast = (text) => {
     toast.textContent = text;
@@ -156,9 +142,7 @@ export const createOverlay = ({
       onPersist({ subtitleScale: scale });
     },
     onPickFile: () => filePicker.click(),
-    onRate: (rate) => {
-      restingRate = rate;
-    },
+    onRate: () => {},
   });
 
   menuRef.setSubtitle = menu.setSubtitle;
@@ -202,27 +186,32 @@ export const createOverlay = ({
     showToast(`${seconds > 0 ? '+' : ''}${seconds}s`);
   };
 
-  const stopRewind = () => {
-    if (rewindTimer === null) return;
-    clearInterval(rewindTimer);
-    rewindTimer = null;
+  const stopScrub = () => {
+    if (scrubTimer === null) return;
+    clearInterval(scrubTimer);
+    scrubTimer = null;
+    visuals.suppressFade(false);
+    if (wasPlayingBeforeScrub) video.play().catch(() => {});
   };
 
-  // playbackRate cannot go negative, so holding the left box steps the clock
-  // backwards at roughly the 2x the right box plays forward at.
-  const startRewind = () => {
-    stopRewind();
-    rewindTimer = setInterval(() => {
-      video.currentTime = Math.max(0, video.currentTime - REWIND_STEP_SECONDS);
-    }, REWIND_TICK_MS);
+  // Both directions step the clock rather than lean on playbackRate, which
+  // Firefox for Android does not reliably honour. Playback is held still while
+  // stepping, otherwise forward would run at 3x and back at only 1x.
+  const startScrub = (direction) => {
+    stopScrub();
+    wasPlayingBeforeScrub = !video.paused;
+    video.pause();
+    visuals.suppressFade(true);
+    scrubTimer = setInterval(() => {
+      const limit = Number.isFinite(video.duration)
+        ? video.duration
+        : video.currentTime;
+      const target = video.currentTime + direction * SCRUB_STEP_SECONDS;
+      video.currentTime = Math.min(limit, Math.max(0, target));
+    }, SCRUB_TICK_MS);
   };
 
-  const lock = createLock(() => {
-    gate.setEnabled(true);
-    setChromeVisible(true);
-  });
-
-  const dragTargets = { [ZONE.SEEK]: seekBar, [ZONE.VOLUME]: volume };
+  const dragTargets = { [ZONE.SEEK]: seekBar };
 
   const recognizer = createRecognizer(surface, {
     tap: ({ zone }) => {
@@ -244,19 +233,11 @@ export const createOverlay = ({
       else setChromeVisible(chrome.hasAttribute('hidden'));
     },
     holdStart: ({ zone }) => {
-      if (zone === ZONE.HOLD_RIGHT) {
-        restingRate = video.playbackRate;
-        video.playbackRate = HOLD_RATE;
-        showToast('2x ▶▶');
-        return;
-      }
-      startRewind();
-      showToast('◀◀ 2x');
+      const isForward = zone === ZONE.HOLD_RIGHT;
+      startScrub(isForward ? 1 : -1);
+      showToast(isForward ? '2x ▶▶' : '◀◀ 2x');
     },
-    holdEnd: ({ zone }) => {
-      if (zone === ZONE.HOLD_RIGHT) video.playbackRate = restingRate;
-      else stopRewind();
-    },
+    holdEnd: () => stopScrub(),
     dragStart: ({ zone }) => {
       setChromeVisible(true);
       dragTargets[zone]?.start();
@@ -270,14 +251,13 @@ export const createOverlay = ({
     pinchEnd: () => visuals.endPinch(),
   });
 
-  gate.setEnabled = recognizer.setEnabled;
-
   buttons.play = buildButton(
     'Play or pause',
     video.paused ? ICON.play : ICON.pause,
     togglePlay,
     'play-button',
   );
+  const playPath = buttons.play.querySelector('path');
 
   const buildSkipButton = (seconds) => {
     const attributes = {
@@ -318,18 +298,10 @@ export const createOverlay = ({
     setChromeVisible(true);
   });
 
-  const lockButton = buildButton('Lock controls', ICON.lock, () => {
-    closePanels();
-    lock.engage();
-    setChromeVisible(false);
-    recognizer.setEnabled(false);
-  });
-
   topbar.append(
     buildButton('Exit player', ICON.exit, () => onExit()),
     el('div', { class: 'spacer' }),
     buttons.colour,
-    lockButton,
     buttons.menu,
   );
 
@@ -342,20 +314,13 @@ export const createOverlay = ({
     topbar.insertBefore(pip, buttons.colour);
   }
 
-  chrome.append(
-    topbar,
-    centreRow,
-    colorPanel.root,
-    menu.root,
-    seekBar.root,
-    volume.root,
-  );
+  chrome.append(topbar, centreRow, colorPanel.root, menu.root, seekBar.root);
 
+  // Only the path data changes, so swapping play for pause cannot make the
+  // button flicker or shift.
   const handlePlaybackChange = () => {
     visuals.setPaused(video.paused);
-    buttons.play.replaceChildren(
-      buildIcon(video.paused ? ICON.play : ICON.pause),
-    );
+    playPath.setAttribute('d', video.paused ? ICON.play : ICON.pause);
     setChromeVisible(true);
   };
   video.addEventListener('pause', handlePlaybackChange);
@@ -380,19 +345,17 @@ export const createOverlay = ({
     setTimeout(fillWhenReady, FILL_RETRY_MS);
   };
 
-  volume.set(video.volume);
   restoreSettings();
   fillWhenReady();
-  shadow.append(surface, cueBox, chrome, lock.veil, toast, filePicker);
+  shadow.append(surface, cueBox, chrome, toast, filePicker);
   setChromeVisible(true);
 
   return {
     destroy: () => {
       recognizer.destroy();
       seekBar.destroy();
-      lock.destroy();
       tracks.destroy();
-      stopRewind();
+      stopScrub();
       if (chromeTimer !== null) clearTimeout(chromeTimer);
       if (toastTimer !== null) clearTimeout(toastTimer);
       video.removeEventListener('pause', handlePlaybackChange);

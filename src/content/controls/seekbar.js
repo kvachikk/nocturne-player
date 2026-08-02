@@ -37,14 +37,17 @@ export const createSeekBar = (video) => {
 
   const duration = () => (Number.isFinite(video.duration) ? video.duration : 0);
 
+  // While scrubbing the left label holds the moment the drag started, so the
+  // target time on the line is not simply repeated back to the user and they
+  // can see where to return to.
   const paint = (time) => {
     const total = duration();
     const ratio = total > 0 ? Math.min(1, Math.max(0, time / total)) : 0;
     fill.style.transform = `scaleX(${ratio})`;
     area.style.setProperty('--progress', `${ratio * 100}%`);
     headTime.textContent = formatClock(time);
-    elapsed.textContent = formatClock(time);
     remaining.textContent = formatRemaining(time, video.duration);
+    if (!isScrubbing) elapsed.textContent = formatClock(time);
   };
 
   const sync = () => {
@@ -53,9 +56,10 @@ export const createSeekBar = (video) => {
   };
 
   const start = () => {
-    isScrubbing = true;
     scrubTime = video.currentTime;
     lastPreviewAt = 0;
+    elapsed.textContent = formatClock(scrubTime);
+    isScrubbing = true;
     root.classList.add('is-scrubbing');
   };
 
@@ -80,6 +84,7 @@ export const createSeekBar = (video) => {
     isScrubbing = false;
     root.classList.remove('is-scrubbing');
     if (duration() > 0) video.currentTime = scrubTime;
+    paint(scrubTime);
   };
 
   video.addEventListener('timeupdate', sync);
