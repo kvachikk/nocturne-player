@@ -147,45 +147,6 @@
   transform: scaleX(0);
 }
 
-.strip {
-  position: absolute;
-  top: 20%;
-  bottom: 22%;
-  width: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  pointer-events: none;
-}
-
-.strip-right {
-  right: max(18px, env(safe-area-inset-right));
-}
-
-.strip-track {
-  position: relative;
-  flex: 1;
-  width: 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.3);
-  overflow: hidden;
-}
-
-.strip-fill {
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  transform-origin: center bottom;
-  transform: scaleY(1);
-}
-
-.strip-glyph {
-  font-size: 15px;
-  line-height: 1;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-}
-
 .toast {
   position: absolute;
   top: 50%;
@@ -213,7 +174,7 @@
 .panel {
   position: absolute;
   top: 60px;
-  right: calc(max(30px, env(safe-area-inset-right)) + 56px);
+  right: max(30px, env(safe-area-inset-right));
   width: min(330px, 50vw);
   padding: 10px 12px;
   border-radius: 16px;
@@ -282,65 +243,6 @@
   color: inherit;
   font: inherit;
   font-size: 13px;
-}
-
-.lock-veil {
-  display: none;
-  pointer-events: auto;
-  touch-action: none;
-}
-
-.lock-veil.is-active {
-  display: block;
-}
-
-.lock-pill {
-  position: absolute;
-  left: 50%;
-  bottom: 12%;
-  transform: translateX(-50%);
-  width: min(280px, 52vw);
-  padding: 6px;
-  border-radius: 999px;
-  background: rgba(20, 19, 26, 0.6);
-  backdrop-filter: blur(18px);
-  display: flex;
-  align-items: center;
-  opacity: 0;
-  transition: opacity 200ms ease;
-}
-
-.lock-pill.is-shown {
-  opacity: 1;
-}
-
-.lock-knob {
-  flex: none;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.lock-knob svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  pointer-events: none;
-}
-
-.lock-label {
-  flex: 1;
-  text-align: center;
-  font-size: 13px;
-  opacity: 0.7;
 }
 
 .menu {
@@ -429,8 +331,8 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 99px;
-  height: 99px;
+  width: 114px;
+  height: 114px;
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
@@ -446,11 +348,13 @@
 }
 
 .play-button svg {
-  width: 55px;
-  height: 55px;
+  width: 63px;
+  height: 63px;
   display: block;
   fill: currentColor;
-  stroke: none;
+  stroke: currentColor;
+  stroke-width: 3.4;
+  stroke-linejoin: round;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -462,7 +366,7 @@
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: clamp(72px, 17vw, 190px);
+  gap: clamp(86px, 20vw, 228px);
   pointer-events: none;
 }
 
