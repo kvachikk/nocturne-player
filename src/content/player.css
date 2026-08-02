@@ -372,3 +372,85 @@
   font-size: 13px;
   opacity: 0.7;
 }
+
+.menu {
+  right: max(10px, env(safe-area-inset-right));
+  left: max(10px, env(safe-area-inset-left));
+  width: auto;
+  max-height: calc(100% - 120px);
+  overflow-y: auto;
+  gap: 8px;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.menu-label {
+  flex: none;
+  width: 84px;
+  font-size: 13px;
+}
+
+.menu-note {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip {
+  min-width: 40px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  background: rgba(236, 236, 242, 0.9);
+  color: #16151c;
+}
+
+.file-picker {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Cues sit above the seek bar and are set with textContent, never parsed. */
+.cue {
+  --cue-scale: 1;
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 78px;
+  text-align: center;
+  font-size: calc(20px * var(--cue-scale));
+  line-height: 1.35;
+  white-space: pre-line;
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.95),
+    0 0 2px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cue.is-visible {
+  opacity: 1;
+}
