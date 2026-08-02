@@ -7,10 +7,10 @@ const PREVIEW_INTERVAL_MS = 120;
 // Pull the finger away from the bar and the same swipe covers less time, so a
 // two-hour film can be landed on the exact scene.
 const PRECISION_STEPS = [
-  { withinPx: 40, factor: 1, label: 'full' },
-  { withinPx: 100, factor: 0.5, label: 'half' },
-  { withinPx: 180, factor: 0.25, label: 'fine' },
-  { withinPx: Infinity, factor: 0.1, label: 'exact' },
+  { withinPx: 40, factor: 1 },
+  { withinPx: 100, factor: 0.5 },
+  { withinPx: 180, factor: 0.25 },
+  { withinPx: Infinity, factor: 0.1 },
 ];
 
 const precisionFor = (distancePx) => {
@@ -25,10 +25,10 @@ export const createSeekBar = (video) => {
   const remaining = el('span', { class: 'time', text: '--:--' });
   const fill = el('div', { class: 'seek-fill' });
   const track = el('div', { class: 'seek-track' }, [fill]);
-  const hint = el('div', { class: 'seek-hint', text: '' });
+  const headTime = el('span', { class: 'seek-time', text: '0:00' });
+  const area = el('div', { class: 'seek-area' }, [track, headTime]);
   const root = el('div', { class: 'seekbar' }, [
-    hint,
-    el('div', { class: 'seek-row' }, [elapsed, track, remaining]),
+    el('div', { class: 'seek-row' }, [elapsed, area, remaining]),
   ]);
 
   let isScrubbing = false;
@@ -41,6 +41,8 @@ export const createSeekBar = (video) => {
     const total = duration();
     const ratio = total > 0 ? Math.min(1, Math.max(0, time / total)) : 0;
     fill.style.transform = `scaleX(${ratio})`;
+    area.style.setProperty('--progress', `${ratio * 100}%`);
+    headTime.textContent = formatClock(time);
     elapsed.textContent = formatClock(time);
     remaining.textContent = formatRemaining(time, video.duration);
   };
@@ -65,8 +67,6 @@ export const createSeekBar = (video) => {
     const step = precisionFor(Math.abs(y - barCenter));
     scrubTime += (dx / width) * total * step.factor;
     scrubTime = Math.min(total, Math.max(0, scrubTime));
-
-    hint.textContent = `${formatClock(scrubTime)} · ${step.label}`;
     paint(scrubTime);
 
     const now = performance.now();
@@ -79,7 +79,6 @@ export const createSeekBar = (video) => {
     if (!isScrubbing) return;
     isScrubbing = false;
     root.classList.remove('is-scrubbing');
-    hint.textContent = '';
     if (duration() > 0) video.currentTime = scrubTime;
   };
 
