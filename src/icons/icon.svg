@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Nocturne Player">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f2757" />
+      <stop offset="1" stop-color="#12101f" />
+    </linearGradient>
+    <mask id="crescent">
+      <circle cx="97" cy="30" r="16" fill="white" />
+      <circle cx="88" cy="24" r="14" fill="black" />
+    </mask>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)" />
+  <rect width="128" height="128" fill="#ffc46b" mask="url(#crescent)" />
+  <path
+    d="M42 40 L94 68 L42 96 Z"
+    fill="#f4f1ff"
+    stroke="#f4f1ff"
+    stroke-width="11"
+    stroke-linejoin="round"
+  />
+</svg>
