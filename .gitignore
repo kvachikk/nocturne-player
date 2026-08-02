@@ -9,3 +9,6 @@ web-ext-artifacts/
 test/fixtures/sample.mp4
 test/fixtures/sample.vtt
 test/fixtures/sample.srt
+
+# Downloaded test content
+test/fixtures/sintel.mp4

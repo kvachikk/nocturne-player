@@ -37,17 +37,15 @@ moment instead of overshooting.
 
 **Volume** — a vertical strip on the right edge, same relative-drag feel.
 
-**Screen dim** — a mirror strip on the left edge that darkens the picture below
-100 % for night viewing.
-
-**Tap to pause** — a large invisible zone in the middle of the screen. When
-paused, the picture fades to grey, like Netflix.
+**Tap to pause** — a large invisible zone in the middle of the screen, plus a
+visible button when the controls are showing. When paused, the picture fades to
+grey, like Netflix.
 
 **Hold for 2x** — hold the right zone to play at double speed, hold the left
 zone to rewind. Double-tap either zone for ±10 seconds.
 
-**Pinch to zoom** — crop the black bars away with two fingers; it snaps cleanly
-to fit and fill.
+**Pinch to zoom** — the picture fills the screen from the start, with no black
+bars; pinch to go back to the full frame and it snaps cleanly between the two.
 
 **Night Light** — warms the picture to a comfortable amber for watching in the
 dark, with adjustable intensity.

@@ -21,8 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   2x rewind, pinch reserved for zoom.
 - Seek bar with relative drag: grab it anywhere and the position moves with the
   finger, with precision scaling as the finger moves away from the bar.
-- Volume and screen-dim strips on the right and left edges.
-- Pinch to zoom, snapping to fit and to the scale that crops the black bars.
+- Volume strip on the right edge.
+- The picture fills the screen by default, with pinch to switch between the
+  full frame and the cropped one.
 - Night light, and brightness, contrast and saturation adjusted with plus and
   minus buttons rather than sliders.
 - Netflix-style fade to grey while paused.
@@ -30,7 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Settings sheet with playback speed, subtitles and quality.
 - Subtitles from the site's own tracks or a local `.srt` / `.vtt` file, with a
   size and sync control and a fallback to native cue painting.
-- Preferences persist on the device through `storage.local`.
+- Preferences persist on the device through `storage.local`. Playback speed is
+  deliberately excluded: it belongs to one film, not to the next.
+- A site's own default subtitle track is adopted on entry, so cues render
+  through the player's own layer instead of underneath the controls.
 - Build pipeline with esbuild producing an unminified bundle.
 - Linting with eslint-config-metarhia and Prettier.
 - Privacy check that fails the build on any network, sensor, analytics or
