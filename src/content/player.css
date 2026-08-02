@@ -245,10 +245,11 @@
   font-size: 13px;
 }
 
+/* Anchored under the button that opens it, not stretched across the film. */
 .menu {
   right: max(30px, env(safe-area-inset-right));
-  left: max(30px, env(safe-area-inset-left));
-  width: auto;
+  left: auto;
+  width: min(560px, 68vw);
   max-height: calc(100% - 120px);
   overflow-y: auto;
   gap: 8px;
@@ -372,7 +373,8 @@
 }
 
 /* Hidden controls must not swallow a tap meant for the picture underneath. */
-.chrome[hidden] .centre-row > * {
+.chrome[hidden] .centre-row > *,
+.chrome[hidden] .topbar {
   pointer-events: none;
 }
 
