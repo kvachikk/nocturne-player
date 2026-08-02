@@ -9,6 +9,8 @@
     sans-serif;
   color: #f4f1ff;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .layer {
@@ -68,14 +70,10 @@
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: 12px;
-  background: rgba(22, 21, 28, 0.42);
-  backdrop-filter: blur(14px);
-  color: inherit;
+  background: none;
+  color: #fff;
   cursor: pointer;
-  transition:
-    background 160ms ease,
-    transform 160ms ease;
+  transition: transform 160ms ease;
 }
 
 .button:active {
@@ -83,8 +81,8 @@
 }
 
 .button[aria-pressed='true'] {
-  background: rgba(236, 236, 242, 0.9);
-  color: #16151c;
+  opacity: 1;
+  color: #ffd8a8;
 }
 
 .button svg {
@@ -135,11 +133,10 @@
 .seek-track {
   position: relative;
   flex: 1;
-  height: 8px;
+  height: 14px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.3);
   overflow: hidden;
-  transition: height 160ms ease;
 }
 
 .seek-fill {
@@ -148,24 +145,6 @@
   background: #fff;
   transform-origin: left center;
   transform: scaleX(0);
-}
-
-.seek-hint {
-  margin-bottom: 10px;
-  text-align: center;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-
-.seekbar.is-scrubbing .seek-track {
-  height: 14px;
-}
-
-.seekbar.is-scrubbing .seek-hint {
-  opacity: 1;
 }
 
 .strip {
@@ -187,11 +166,10 @@
 .strip-track {
   position: relative;
   flex: 1;
-  width: 6px;
+  width: 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.3);
   overflow: hidden;
-  transition: width 160ms ease;
 }
 
 .strip-fill {
@@ -206,10 +184,6 @@
   font-size: 15px;
   line-height: 1;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-}
-
-.strip.is-active .strip-track {
-  width: 12px;
 }
 
 .toast {
@@ -455,8 +429,8 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 72px;
-  height: 72px;
+  width: 99px;
+  height: 99px;
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
@@ -464,25 +438,97 @@
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: rgba(22, 21, 28, 0.42);
-  backdrop-filter: blur(14px);
-  color: inherit;
+  background: none;
+  color: #fff;
   cursor: pointer;
   pointer-events: auto;
   transition: transform 160ms ease;
 }
 
-.play-button:active {
-  transform: translate(-50%, -50%) scale(0.92);
+.play-button svg {
+  width: 55px;
+  height: 55px;
+  display: block;
+  fill: currentColor;
+  stroke: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.play-button svg {
-  width: 32px;
-  height: 32px;
+.centre-row {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: clamp(72px, 17vw, 190px);
+  pointer-events: none;
+}
+
+.centre-row > * {
+  pointer-events: auto;
+}
+
+.play-button:active,
+.skip-button:active {
+  transform: scale(0.9);
+}
+
+.skip-button {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 160ms ease;
+}
+
+.seek-area {
+  --progress: 0%;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* The scrub time rides the tip of the line rather than sitting in the middle. */
+.seek-time {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: var(--progress);
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(20, 19, 26, 0.82);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+
+.seekbar.is-scrubbing .seek-time {
+  opacity: 1;
+}
+
+.skip-button svg {
+  width: 40px;
+  height: 40px;
   display: block;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 1.7;
   stroke-linecap: round;
-  stroke-linejoin: round;
+}
+
+.skip-button text {
+  font-family: inherit;
 }

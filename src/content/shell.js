@@ -40,7 +40,15 @@ export const createShadowHost = (css, extraHostStyle) => {
 };
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'g', 'line']);
+const SVG_TAGS = new Set([
+  'svg',
+  'path',
+  'circle',
+  'rect',
+  'g',
+  'line',
+  'text',
+]);
 
 // Built node by node rather than from markup: no innerHTML anywhere in the
 // extension, so page-derived text can never be parsed as HTML.

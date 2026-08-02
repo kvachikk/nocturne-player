@@ -25,8 +25,35 @@ const ICON = {
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z',
   pip: 'M3 5h18v14H3zM12 12h7v5h-7z',
   menu: 'M4 7h16M4 12h16M4 17h16',
-  play: 'M8 5.5 18 12 8 18.5z',
-  pause: 'M9 5v14M15 5v14',
+  play: 'M8 5 19 12 8 19z',
+  pause: 'M7.5 4.5h3.4v15H7.5zM13.1 4.5h3.4v15h-3.4z',
+};
+
+// A ring with an arrowhead and the number inside, the way phone players draw
+// their skip controls.
+const buildSkipIcon = (seconds) => {
+  const isForward = seconds > 0;
+  const arc = isForward
+    ? 'M12 4.5A7.5 7.5 0 1 0 19.5 12'
+    : 'M12 4.5A7.5 7.5 0 1 1 4.5 12';
+  const head = isForward
+    ? 'M12 1.4 12 7.6 15.6 4.5z'
+    : 'M12 1.4 12 7.6 8.4 4.5z';
+
+  return el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+    el('path', { d: arc }),
+    el('path', { d: head, fill: 'currentColor', stroke: 'none' }),
+    el('text', {
+      x: '12',
+      y: '15.6',
+      'text-anchor': 'middle',
+      'font-size': '8.5',
+      'font-weight': '600',
+      fill: 'currentColor',
+      stroke: 'none',
+      text: String(Math.abs(seconds)),
+    }),
+  ]);
 };
 
 const buildIcon = (path) =>
@@ -240,10 +267,7 @@ export const createOverlay = ({
       pinchBase = visuals.beginPinch();
     },
     pinchMove: ({ scale }) => visuals.pinchTo(pinchBase * scale),
-    pinchEnd: () => {
-      const scale = visuals.endPinch();
-      showToast(scale === 1 ? 'Fit' : 'Filled');
-    },
+    pinchEnd: () => visuals.endPinch(),
   });
 
   gate.setEnabled = recognizer.setEnabled;
@@ -254,6 +278,26 @@ export const createOverlay = ({
     togglePlay,
     'play-button',
   );
+
+  const buildSkipButton = (seconds) => {
+    const attributes = {
+      class: 'skip-button',
+      type: 'button',
+      title: `${seconds > 0 ? 'Forward' : 'Back'} ${Math.abs(seconds)} seconds`,
+    };
+    const button = el('button', attributes, [buildSkipIcon(seconds)]);
+    button.addEventListener('click', () => {
+      skip(seconds);
+      setChromeVisible(true);
+    });
+    return button;
+  };
+
+  const centreRow = el('div', { class: 'centre-row' }, [
+    buildSkipButton(-SKIP_SECONDS),
+    buttons.play,
+    buildSkipButton(SKIP_SECONDS),
+  ]);
 
   buttons.colour = buildButton('Colour', ICON.colour, () => {
     menu.close();
@@ -300,7 +344,7 @@ export const createOverlay = ({
 
   chrome.append(
     topbar,
-    buttons.play,
+    centreRow,
     colorPanel.root,
     menu.root,
     seekBar.root,
