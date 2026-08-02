@@ -1,0 +1,102 @@
+import { formatClock, formatRemaining } from '../../lib/time.js';
+import { el } from '../shell.js';
+
+const BAR_CENTER_FROM_BOTTOM_PX = 34;
+const PREVIEW_INTERVAL_MS = 120;
+
+// Pull the finger away from the bar and the same swipe covers less time, so a
+// two-hour film can be landed on the exact scene.
+const PRECISION_STEPS = [
+  { withinPx: 40, factor: 1, label: 'full' },
+  { withinPx: 100, factor: 0.5, label: 'half' },
+  { withinPx: 180, factor: 0.25, label: 'fine' },
+  { withinPx: Infinity, factor: 0.1, label: 'exact' },
+];
+
+const precisionFor = (distancePx) => {
+  for (const step of PRECISION_STEPS) {
+    if (distancePx <= step.withinPx) return step;
+  }
+  return PRECISION_STEPS[PRECISION_STEPS.length - 1];
+};
+
+export const createSeekBar = (video) => {
+  const elapsed = el('span', { class: 'time', text: '0:00' });
+  const remaining = el('span', { class: 'time', text: '--:--' });
+  const fill = el('div', { class: 'seek-fill' });
+  const track = el('div', { class: 'seek-track' }, [fill]);
+  const hint = el('div', { class: 'seek-hint', text: '' });
+  const root = el('div', { class: 'seekbar' }, [
+    hint,
+    el('div', { class: 'seek-row' }, [elapsed, track, remaining]),
+  ]);
+
+  let isScrubbing = false;
+  let scrubTime = 0;
+  let lastPreviewAt = 0;
+
+  const duration = () => (Number.isFinite(video.duration) ? video.duration : 0);
+
+  const paint = (time) => {
+    const total = duration();
+    const ratio = total > 0 ? Math.min(1, Math.max(0, time / total)) : 0;
+    fill.style.transform = `scaleX(${ratio})`;
+    elapsed.textContent = formatClock(time);
+    remaining.textContent = formatRemaining(time, video.duration);
+  };
+
+  const sync = () => {
+    if (isScrubbing) return;
+    paint(video.currentTime);
+  };
+
+  const start = () => {
+    isScrubbing = true;
+    scrubTime = video.currentTime;
+    lastPreviewAt = 0;
+    root.classList.add('is-scrubbing');
+  };
+
+  const move = ({ dx, y, width, height }) => {
+    const total = duration();
+    if (total === 0) return;
+
+    const barCenter = height - BAR_CENTER_FROM_BOTTOM_PX;
+    const step = precisionFor(Math.abs(y - barCenter));
+    scrubTime += (dx / width) * total * step.factor;
+    scrubTime = Math.min(total, Math.max(0, scrubTime));
+
+    hint.textContent = `${formatClock(scrubTime)} · ${step.label}`;
+    paint(scrubTime);
+
+    const now = performance.now();
+    if (now - lastPreviewAt < PREVIEW_INTERVAL_MS) return;
+    lastPreviewAt = now;
+    video.currentTime = scrubTime;
+  };
+
+  const end = () => {
+    if (!isScrubbing) return;
+    isScrubbing = false;
+    root.classList.remove('is-scrubbing');
+    hint.textContent = '';
+    if (duration() > 0) video.currentTime = scrubTime;
+  };
+
+  video.addEventListener('timeupdate', sync);
+  video.addEventListener('durationchange', sync);
+  video.addEventListener('seeked', sync);
+  sync();
+
+  return {
+    root,
+    start,
+    move,
+    end,
+    destroy: () => {
+      video.removeEventListener('timeupdate', sync);
+      video.removeEventListener('durationchange', sync);
+      video.removeEventListener('seeked', sync);
+    },
+  };
+};
