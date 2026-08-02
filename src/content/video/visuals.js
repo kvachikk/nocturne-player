@@ -11,19 +11,25 @@ const buildFilter = ({ grayscale, saturate, contrast, brightness }) =>
   `grayscale(${grayscale}) saturate(${saturate}) ` +
   `contrast(${contrast}) brightness(${brightness})`;
 
-export const createVisuals = (video, stage) => {
+export const createVisuals = (video, stage, wasPlaying) => {
   const colour = { saturate: 1, contrast: 1, brightness: 1 };
   const view = { scale: 1, x: 0, y: 0 };
 
-  let isPaused = video.paused;
+  // Gecko reports the element as paused for a moment while it is re-parented,
+  // which would otherwise flash the pause fade over a film that is playing.
+  let isPaused = wasPlaying ? false : video.paused;
   let isPinching = false;
+  let isFadeSuppressed = false;
 
   const apply = () => {
+    // While the colour panel is open the fade is held off, otherwise the user
+    // would be tuning colours against a grey picture.
+    const isFaded = isPaused && !isFadeSuppressed;
     const filter = buildFilter({
-      grayscale: isPaused ? PAUSE_GRAYSCALE : 0,
+      grayscale: isFaded ? PAUSE_GRAYSCALE : 0,
       saturate: colour.saturate,
       contrast: colour.contrast,
-      brightness: colour.brightness * (isPaused ? PAUSE_BRIGHTNESS : 1),
+      brightness: colour.brightness * (isFaded ? PAUSE_BRIGHTNESS : 1),
     });
     const offset = `translate(${view.x}px, ${view.y}px)`;
     const transform = `${offset} scale(${view.scale})`;
@@ -59,10 +65,30 @@ export const createVisuals = (video, stage) => {
 
   apply();
 
+  const coverScale = () => {
+    const size = stageSize();
+    return computeCoverScale(
+      video.videoWidth,
+      video.videoHeight,
+      size.width,
+      size.height,
+    );
+  };
+
   return {
     setPaused: (value) => {
       isPaused = value;
       apply();
+    },
+    suppressFade: (value) => {
+      isFadeSuppressed = value;
+      apply();
+    },
+    // Crops the letterbox away, which is what most people want on a phone.
+    fillScreen: () => {
+      if (video.videoWidth === 0) return false;
+      setScale(coverScale());
+      return true;
     },
     setColour: (patch) => {
       Object.assign(colour, patch);
