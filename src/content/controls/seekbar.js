@@ -1,7 +1,6 @@
 import { formatClock, formatRemaining } from '../../lib/time.js';
 import { el } from '../shell.js';
 
-const BAR_CENTER_FROM_BOTTOM_PX = 34;
 const PREVIEW_INTERVAL_MS = 120;
 
 // Pull the finger away from the bar and the same swipe covers less time, so a
@@ -63,12 +62,19 @@ export const createSeekBar = (video) => {
     root.classList.add('is-scrubbing');
   };
 
+  // Measured rather than assumed: the bar sits a fifth of the way up the
+  // screen, and where exactly that lands depends on the phone.
+  const barCenter = (fallback) => {
+    const rect = track.getBoundingClientRect();
+    if (rect.height === 0) return fallback;
+    return rect.top + rect.height / 2;
+  };
+
   const move = ({ dx, y, width, height }) => {
     const total = duration();
     if (total === 0) return;
 
-    const barCenter = height - BAR_CENTER_FROM_BOTTOM_PX;
-    const step = precisionFor(Math.abs(y - barCenter));
+    const step = precisionFor(Math.abs(y - barCenter(height)));
     scrubTime += (dx / width) * total * step.factor;
     scrubTime = Math.min(total, Math.max(0, scrubTime));
     paint(scrubTime);
