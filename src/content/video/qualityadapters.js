@@ -83,15 +83,18 @@ const createSourceAdapter = (video) => {
 
 // --- YouTube -----------------------------------------------------------------
 
-const findYouTubePlayer = () => {
+const findYouTubePlayer = (host) => {
+  if (host !== null && isFunction(host, 'getAvailableQualityLevels')) {
+    return host;
+  }
   const element = document.querySelector('#movie_player, .html5-video-player');
   if (element === null) return null;
   const player = element.wrappedJSObject ?? element;
   return isFunction(player, 'getAvailableQualityLevels') ? player : null;
 };
 
-const createYouTubeAdapter = () => {
-  const player = findYouTubePlayer();
+const createYouTubeAdapter = (video, host) => {
+  const player = findYouTubePlayer(host);
   if (player === null) return null;
 
   // YouTube reports the quality it is actually playing, which on auto keeps
@@ -312,7 +315,9 @@ const MATCHERS = [
 
 // One sweep of the page's globals for all three streaming engines, after the
 // cheap check of whether the engine is hanging off the element itself.
-const createStreamAdapter = (video) => {
+const createStreamAdapter = (video, host) => {
+  if (host !== null && isHlsEngine(host)) return buildHlsAdapter(host);
+
   const attached = findHlsOnElement(video);
   if (attached !== null) return buildHlsAdapter(attached);
 

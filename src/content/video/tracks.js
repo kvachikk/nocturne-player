@@ -38,7 +38,7 @@ const loadTrackCues = (track, onReady) => {
   poll();
 };
 
-export const createTrackManager = (video, onCue, onSelection) => {
+export const createTrackManager = (video, onCue, onSelection, host = null) => {
   const loaded = [];
 
   let cues = [];
@@ -63,7 +63,7 @@ export const createTrackManager = (video, onCue, onSelection) => {
   // mutation arriving after a switch must not put its line back on screen.
   const site = createSiteCaptions((text) => {
     if (isSiteId(selected)) emit(text);
-  });
+  }, host);
 
   const update = () => {
     if (selected === -1 || isNative || isSiteId(selected)) return;

@@ -83,6 +83,21 @@ export const isFunction = (object, name) => {
   }
 };
 
+// A site's player API usually lives on an ancestor of the video: YouTube puts
+// it on #movie_player. This has to be read before the video is moved onto our
+// stage, because afterwards the chain of ancestors is ours, not theirs.
+export const findApiAncestor = (element, names) => {
+  let node = element.parentElement;
+  while (node !== null) {
+    const waived = node.wrappedJSObject ?? node;
+    for (const name of names) {
+      if (isFunction(waived, name)) return waived;
+    }
+    node = node.parentElement;
+  }
+  return null;
+};
+
 // A last resort for players that keep their engine on a global under a name
 // only they know. Bounded, and every property read is guarded, because a getter
 // on a page global can throw or be expensive.

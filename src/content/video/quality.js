@@ -5,14 +5,14 @@ export { AUTO_ID };
 // A streaming player builds its quality ladder after the first segments land,
 // so the ladder is looked up again every time the sheet is opened rather than
 // once when the session starts.
-export const createQuality = (video) => {
+export const createQuality = (video, host = null) => {
   let adapter = null;
   let options = [];
 
   const detect = () => {
     for (const create of ADAPTERS) {
       try {
-        const candidate = create(video);
+        const candidate = create(video, host);
         if (candidate !== null) return candidate;
       } catch (error) {
         console.warn('Nocturne: a quality adapter threw while probing', error);
@@ -33,9 +33,16 @@ export const createQuality = (video) => {
     return options;
   };
 
+  // Says which of the two things went wrong, because "no quality here" and
+  // "found the player, it is offering nothing yet" want different answers from
+  // whoever is looking at it.
   const describe = () => {
-    if (video.videoWidth === 0) return 'Set by the site';
-    return `${video.videoWidth}×${video.videoHeight} · set by the site`;
+    const size =
+      video.videoWidth === 0
+        ? ''
+        : `${video.videoWidth}×${video.videoHeight} · `;
+    if (adapter !== null) return `${size}${adapter.name}: no levels yet`;
+    return `${size}set by the site`;
   };
 
   return {

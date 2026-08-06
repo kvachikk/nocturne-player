@@ -1,6 +1,15 @@
 import { createOverlay } from './ui.js';
 import { createShadowHost, el, pinStyle } from './shell.js';
+import { findApiAncestor } from './video/pageapi.js';
 import playerCss from './player.css';
+
+// The names a site's own player hangs off the element wrapping the video.
+const PLAYER_API_MARKERS = [
+  'getAvailableQualityLevels',
+  'setPlaybackQualityRange',
+  'getOption',
+  'levels',
+];
 
 const STALL_GRACE_MS = 400;
 const EMPTIED_GRACE_MS = 600;
@@ -141,6 +150,7 @@ const isBackgrounded = () => document.hidden || !document.hasFocus();
 
 export const createSession = (video, { onExit, settings, onPersist }) => {
   const state = captureVideoState(video);
+  const playerHost = findApiAncestor(video, PLAYER_API_MARKERS);
   const anchor = document.createComment('nocturne-player');
   const stage = document.createElement('div');
   const ui = createShadowHost(playerCss);
@@ -334,6 +344,7 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
       onExit: exit,
       settings,
       onPersist,
+      playerHost,
       onImmersiveChange: (isOn) => {
         isFullscreenWanted = isOn;
         if (isOn) {

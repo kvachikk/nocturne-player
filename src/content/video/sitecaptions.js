@@ -44,7 +44,8 @@ const findContainer = () => {
   return null;
 };
 
-const findYouTubePlayer = () => {
+const findYouTubePlayer = (host) => {
+  if (host !== null && isFunction(host, 'getOption')) return host;
   const element = document.querySelector('#movie_player, .html5-video-player');
   if (element === null) return null;
   const player = element.wrappedJSObject ?? element;
@@ -55,8 +56,8 @@ const findYouTubePlayer = () => {
 // video.textTracks, so the list comes from there and the text comes from the
 // mirror above. Other players expose the mirror only, which is still enough to
 // show whatever the site has switched on.
-const createYouTubeTracks = () => {
-  const player = findYouTubePlayer();
+const createYouTubeTracks = (host) => {
+  const player = findYouTubePlayer(host);
   if (player === null) return null;
 
   const tracklist = () => {
@@ -101,8 +102,8 @@ const createYouTubeTracks = () => {
   };
 };
 
-export const createSiteCaptions = (onText) => {
-  const youtube = createYouTubeTracks();
+export const createSiteCaptions = (onText, host = null) => {
+  const youtube = createYouTubeTracks(host);
 
   let container = null;
   let observer = null;
