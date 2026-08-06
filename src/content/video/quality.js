@@ -38,8 +38,6 @@ export const createQuality = (video) => {
     return `${video.videoWidth}×${video.videoHeight} · set by the site`;
   };
 
-  refresh();
-
   return {
     refresh,
     describe,

@@ -86,7 +86,12 @@ export const isFunction = (object, name) => {
 // A last resort for players that keep their engine on a global under a name
 // only they know. Bounded, and every property read is guarded, because a getter
 // on a page global can throw or be expensive.
-export const findGlobal = (matches) => {
+//
+// Every matcher is tried against each global in one sweep. Sweeping once per
+// engine instead meant walking the page's globals three times over, through
+// cross-compartment wrappers, in the moment the viewer was waiting for the
+// player to open.
+export const findGlobalMatch = (matchers) => {
   const scope = pageWindow();
   let keys = [];
   try {
@@ -99,10 +104,12 @@ export const findGlobal = (matches) => {
   for (let index = 0; index < limit; index++) {
     const value = read(scope, keys[index]);
     if (value === null || typeof value !== 'object') continue;
-    try {
-      if (matches(value)) return value;
-    } catch {
-      continue;
+    for (const matcher of matchers) {
+      try {
+        if (matcher.matches(value)) return { name: matcher.name, value };
+      } catch {
+        continue;
+      }
     }
   }
   return null;

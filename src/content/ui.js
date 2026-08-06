@@ -15,6 +15,7 @@ const TOAST_MS = 900;
 const HINT_MS = 2200;
 const SKIP_SECONDS = 10;
 const FILL_RETRY_MS = 400;
+const FILL_ATTEMPTS = 25;
 
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
@@ -377,9 +378,14 @@ export const createOverlay = ({
     cueBox.style.setProperty('--cue-scale', String(settings.subtitleScale));
   };
 
-  // Black bars cropped from the start; metadata may not have arrived yet.
+  // Black bars cropped from the start; metadata may not have arrived yet. The
+  // retry gives up rather than ticking for as long as the film lasts on a
+  // stream that never reports its dimensions.
+  let fillAttempts = 0;
   const fillWhenReady = () => {
     if (visuals.fillScreen()) return;
+    fillAttempts += 1;
+    if (fillAttempts >= FILL_ATTEMPTS) return;
     setTimeout(fillWhenReady, FILL_RETRY_MS);
   };
 

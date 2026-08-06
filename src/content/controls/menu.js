@@ -174,7 +174,7 @@ export const createMenu = ({
   );
 
   paintSubtitles();
-  paintQuality();
+  qualityRow.chips.replaceChildren(buildNote('Reading the site…'));
 
   const root = el('div', { class: 'panel menu' }, [
     speedRow.row,

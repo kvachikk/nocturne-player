@@ -63,7 +63,7 @@
     ),
     radial-gradient(
       ellipse 70% 55% at 50% 50%,
-      rgba(0, 0, 0, 0.26) 0%,
+      rgba(0, 0, 0, 0.12) 0%,
       rgba(0, 0, 0, 0) 100%
     );
   pointer-events: none;

@@ -117,7 +117,7 @@ export const createSiteCaptions = (onText) => {
   };
 
   const readNow = () => {
-    if (container === null || !container.isConnected) return;
+    if (!isMirroring || container === null || !container.isConnected) return;
     emit(readLines(container));
   };
 

@@ -1,6 +1,6 @@
 import {
   call,
-  findGlobal,
+  findGlobalMatch,
   isFunction,
   read,
   toArray,
@@ -144,20 +144,17 @@ const isHlsEngine = (value) =>
   Array.isArray(read(value, 'levels')) &&
   typeof read(value, 'currentLevel') === 'number';
 
-const findHls = (video) => {
+const findHlsOnElement = (video) => {
   const attached = ['hls', '_hls', '__hls', 'hlsPlayer'];
   const element = video.wrappedJSObject ?? video;
   for (const key of attached) {
     const candidate = read(element, key);
     if (candidate && isHlsEngine(candidate)) return candidate;
   }
-  return findGlobal(isHlsEngine);
+  return null;
 };
 
-const createHlsAdapter = (video) => {
-  const engine = findHls(video);
-  if (engine === null) return null;
-
+const buildHlsAdapter = (engine) => {
   const levels = () =>
     toArray(read(engine, 'levels')).map((level, index) => ({
       index,
@@ -197,10 +194,7 @@ const isDashPlayer = (value) =>
   isFunction(value, 'getBitrateInfoListFor') &&
   isFunction(value, 'setQualityFor');
 
-const createDashAdapter = () => {
-  const player = findGlobal(isDashPlayer);
-  if (player === null) return null;
-
+const buildDashAdapter = (player) => {
   const setAuto = (isOn) => {
     call(
       player,
@@ -253,10 +247,7 @@ const isShakaPlayer = (value) =>
   isFunction(value, 'getVariantTracks') &&
   isFunction(value, 'selectVariantTrack');
 
-const createShakaAdapter = () => {
-  const player = findGlobal(isShakaPlayer);
-  if (player === null) return null;
-
+const buildShakaAdapter = (player) => {
   // The originals are handed back to selectVariantTrack untouched: a track is
   // a page object, and only the page's own object is accepted there.
   let known = new Map();
@@ -307,12 +298,33 @@ const createShakaAdapter = () => {
   };
 };
 
+const BUILDERS = {
+  hls: buildHlsAdapter,
+  dash: buildDashAdapter,
+  shaka: buildShakaAdapter,
+};
+
+const MATCHERS = [
+  { name: 'hls', matches: isHlsEngine },
+  { name: 'dash', matches: isDashPlayer },
+  { name: 'shaka', matches: isShakaPlayer },
+];
+
+// One sweep of the page's globals for all three streaming engines, after the
+// cheap check of whether the engine is hanging off the element itself.
+const createStreamAdapter = (video) => {
+  const attached = findHlsOnElement(video);
+  if (attached !== null) return buildHlsAdapter(attached);
+
+  const found = findGlobalMatch(MATCHERS);
+  if (found === null) return null;
+  return BUILDERS[found.name](found.value);
+};
+
 // Cheapest and most certain first: a <source> list is unambiguous, a named
-// player is next, and the global scan is the last thing tried.
+// player is next, and the sweep of page globals is the last thing tried.
 export const ADAPTERS = [
   createSourceAdapter,
   createYouTubeAdapter,
-  createHlsAdapter,
-  createDashAdapter,
-  createShakaAdapter,
+  createStreamAdapter,
 ];
