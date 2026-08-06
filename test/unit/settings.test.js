@@ -24,7 +24,11 @@ test('a stored value of the wrong type falls back to neutral', () => {
 });
 
 test('a value the user really chose is kept', () => {
-  const settings = normalize({ contrast: 1.15, warmth: 0.27 });
+  const settings = normalize({
+    schemaVersion: 2,
+    contrast: 1.15,
+    warmth: 0.27,
+  });
   assert.equal(settings.contrast, 1.15);
   assert.equal(settings.warmth, 0.27);
 });
@@ -33,4 +37,28 @@ test('unknown keys never reach the running state', () => {
   const settings = normalize({ contrast: 1.1, somethingElse: true });
   assert.equal(settings.somethingElse, undefined);
   assert.deepEqual(Object.keys(settings).sort(), Object.keys(DEFAULTS).sort());
+});
+
+test('an upgrade from schema 1 drops the colour it was left on', () => {
+  const settings = normalize({
+    schemaVersion: 1,
+    contrast: 1.3,
+    saturate: 0,
+    warmth: 0.36,
+    subtitleScale: 1.25,
+    disabledHosts: ['example.com'],
+  });
+  assert.equal(settings.contrast, 1);
+  assert.equal(settings.saturate, 1);
+  assert.equal(settings.warmth, 0);
+  // Everything that is not colour survives the upgrade.
+  assert.equal(settings.subtitleScale, 1.25);
+  assert.deepEqual(settings.disabledHosts, ['example.com']);
+  assert.equal(settings.schemaVersion, 2);
+});
+
+test('colour set on the current schema is kept', () => {
+  const settings = normalize({ schemaVersion: 2, saturate: 0, contrast: 1.2 });
+  assert.equal(settings.saturate, 0);
+  assert.equal(settings.contrast, 1.2);
 });

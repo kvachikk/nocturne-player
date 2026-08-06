@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'nocturne';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export const DEFAULTS = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
@@ -41,9 +41,25 @@ const inRange = (key, value) => {
   return value;
 };
 
+const COLOUR_KEYS = ['warmth', 'brightness', 'contrast', 'saturate'];
+
+// Schema 1 kept whatever colour the panel was last left on, including values
+// somebody had only been trying out. They came back on the next film — on what
+// looked like a clean profile — as a picture that was already tinted, or in one
+// case with the colour drained out of it entirely. The upgrade drops them once;
+// after that they are the viewer's again.
+const migrate = (stored) => {
+  if (stored === null || typeof stored !== 'object') return stored;
+  if (stored.schemaVersion === SCHEMA_VERSION) return stored;
+  const migrated = { ...stored };
+  for (const key of COLOUR_KEYS) delete migrated[key];
+  return migrated;
+};
+
 // Rebuilt key by key so every settings object shares one hidden class, and so
 // unknown keys from a future version can never leak into the running state.
-export const normalize = (stored) => {
+export const normalize = (raw) => {
+  const stored = migrate(raw);
   const settings = {};
   for (const key of KEYS) {
     const value = stored?.[key];
