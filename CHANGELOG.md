@@ -55,9 +55,12 @@ Everything in this release comes from watching real films on a real phone with
   another app. Position and offsets are pinned along with the size and re-pinned
   whenever the site writes over them, and the zoom is re-derived from what the
   viewer asked for whenever the stage changes shape.
-- **Colour starts neutral.** Values stored out of range, or of the wrong type,
-  now fall back to the neutral one instead of tinting a film for reasons the
-  viewer cannot see.
+- **Colour starts neutral.** Settings move to schema 2, which drops the four
+  colour values once on upgrade: a profile left on zero saturation was playing
+  every film in black and white, and one left on 1.3 contrast kept every film
+  tinted, neither of them anything a viewer would connect to a setting they
+  touched once. Values stored out of range or of the wrong type now fall back
+  to the neutral one as well.
 - **No more fade to grey while paused.** People pause to look at the picture.
 - Leaving the app no longer tears the session down. Losing fullscreen while the
   app is on its way to the background is what Android's floating-window hand-off
