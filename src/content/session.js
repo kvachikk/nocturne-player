@@ -5,6 +5,7 @@ import playerCss from './player.css';
 const STALL_GRACE_MS = 400;
 const EMPTIED_GRACE_MS = 600;
 const RECOVER_DELAY_MS = 250;
+const MAX_REPINS = 240;
 
 const STAGE_STYLE = {
   position: 'fixed',
@@ -28,7 +29,6 @@ const STAGE_STYLE = {
 // after coming back from another app. Position and offsets are pinned here too,
 // not only the size, and re-pinned whenever the site writes over them.
 const VIDEO_STYLE = {
-  inset: 'auto',
   position: 'relative',
   left: '0',
   top: '0',
@@ -84,14 +84,23 @@ const auditRestore = (video, state) => {
   return false;
 };
 
-// Written only when it has actually been disturbed, so re-pinning cannot chase
-// its own mutation record round in a loop.
-const isPinned = (video) =>
-  VIDEO_STYLE_KEYS.every(
-    (name) =>
-      video.style.getPropertyValue(name) === VIDEO_STYLE[name] &&
-      video.style.getPropertyPriority(name) === 'important',
-  );
+// The style is compared against what the browser serialised, never against
+// what we asked for: setting `left: 0` reads back as `0px`, so comparing with
+// the input would find a difference every time and re-pin on the strength of
+// its own mutation record — a loop that recalculates style until the phone
+// crawls.
+const readStyle = (video) => {
+  const seen = {};
+  for (const name of VIDEO_STYLE_KEYS) {
+    seen[name] = video.style.getPropertyValue(name);
+  }
+  return seen;
+};
+
+const isSameStyle = (first, second) => {
+  if (first === null) return false;
+  return VIDEO_STYLE_KEYS.every((name) => first[name] === second[name]);
+};
 
 // navigationUI is deliberately left at its default. Asking Gecko to hide it put
 // Android into sticky immersive mode, where the first swipe up only brings the
@@ -143,6 +152,8 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
   let isOrientationLocked = false;
   let isFullscreenWanted = settings.isFullscreenTakeoverOn;
   let styleGuard = null;
+  let pinnedStyle = null;
+  let repinCount = 0;
   let overlay = null;
   let relayoutFrame = 0;
 
@@ -165,9 +176,23 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     return timer;
   };
 
+  // Re-pinning is bounded: a site that fights back with !important of its own
+  // would otherwise trade writes with us for as long as the film lasts. After
+  // the budget runs out the guard steps aside and the picture is re-fitted on
+  // the ordinary relayout events instead.
   const pinVideo = () => {
-    if (isPinned(video)) return;
+    if (isSameStyle(pinnedStyle, readStyle(video))) return;
+
+    repinCount += 1;
+    if (repinCount > MAX_REPINS) {
+      if (styleGuard) styleGuard.disconnect();
+      styleGuard = null;
+      console.warn('Nocturne: the site keeps rewriting the video, leaving it');
+      return;
+    }
+
     pinStyle(video, VIDEO_STYLE);
+    pinnedStyle = readStyle(video);
   };
 
   const relayout = () => {
