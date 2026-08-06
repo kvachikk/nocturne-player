@@ -19,7 +19,14 @@ export default [
   {
     files: ['src/**/*.js'],
     languageOptions: {
-      globals: { ...globals.browser, ...globals.webextensions },
+      globals: {
+        ...globals.browser,
+        ...globals.webextensions,
+        // Firefox gives content scripts these for talking to the page's own
+        // compartment; they are not part of the standard browser globals.
+        cloneInto: 'readonly',
+        exportFunction: 'readonly',
+      },
     },
   },
   {

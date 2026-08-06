@@ -12,6 +12,7 @@ const CHROME_IDLE_MS = 3000;
 const SCRUB_STEP_SECONDS = 0.2;
 const SCRUB_TICK_MS = 100;
 const TOAST_MS = 900;
+const HINT_MS = 2200;
 const SKIP_SECONDS = 10;
 const FILL_RETRY_MS = 400;
 
@@ -19,7 +20,7 @@ const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
   colour:
     'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
-  pip: 'M3 5h18v14H3zM12 12h7v5h-7z',
+  pip: 'M4 5h16v14H4zM12.5 12.5h6v5h-6z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
   pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
@@ -72,9 +73,10 @@ export const createOverlay = ({
   onExit,
   settings,
   onPersist,
-  wasPlaying,
+  onImmersiveChange,
 }) => {
   const surface = el('div', { class: 'layer surface' });
+  const scrim = el('div', { class: 'layer scrim' });
   const toast = el('div', { class: 'toast' });
   const topbar = el('div', { class: 'topbar' });
   const chrome = el('div', { class: 'chrome' });
@@ -94,7 +96,7 @@ export const createOverlay = ({
   // were watching, not to the next one.
   video.playbackRate = 1;
 
-  const visuals = createVisuals(video, stage, wasPlaying);
+  const visuals = createVisuals(video, stage);
   const quality = createQuality(video);
   const tracks = createTrackManager(
     video,
@@ -113,14 +115,14 @@ export const createOverlay = ({
   let pinchBase = 1;
   let wasPlayingBeforeScrub = false;
 
-  const showToast = (text) => {
+  const showToast = (text, duration = TOAST_MS) => {
     toast.textContent = text;
     toast.classList.add('is-visible');
     if (toastTimer !== null) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       toastTimer = null;
       toast.classList.remove('is-visible');
-    }, TOAST_MS);
+    }, duration);
   };
 
   const applyWarmth = (value) => {
@@ -137,12 +139,17 @@ export const createOverlay = ({
     video,
     tracks,
     quality,
+    settings,
     onStyle: ({ scale }) => {
       cueBox.style.setProperty('--cue-scale', String(scale));
       onPersist({ subtitleScale: scale });
     },
     onPickFile: () => filePicker.click(),
     onRate: () => {},
+    onImmersive: (isOn) => {
+      onImmersiveChange(isOn);
+      onPersist({ isFullscreenTakeoverOn: isOn });
+    },
   });
 
   menuRef.setSubtitle = menu.setSubtitle;
@@ -165,7 +172,6 @@ export const createOverlay = ({
   const closePanels = () => {
     colorPanel.close();
     menu.close();
-    visuals.suppressFade(false);
     buttons.colour?.setAttribute('aria-pressed', 'false');
     buttons.menu?.setAttribute('aria-pressed', 'false');
     setChromeVisible(true);
@@ -190,7 +196,6 @@ export const createOverlay = ({
     if (scrubTimer === null) return;
     clearInterval(scrubTimer);
     scrubTimer = null;
-    visuals.suppressFade(false);
     if (wasPlayingBeforeScrub) video.play().catch(() => {});
   };
 
@@ -201,7 +206,6 @@ export const createOverlay = ({
     stopScrub();
     wasPlayingBeforeScrub = !video.paused;
     video.pause();
-    visuals.suppressFade(true);
     scrubTimer = setInterval(() => {
       const limit = Number.isFinite(video.duration)
         ? video.duration
@@ -214,13 +218,12 @@ export const createOverlay = ({
   const dragTargets = { [ZONE.SEEK]: seekBar };
 
   const recognizer = createRecognizer(surface, {
-    tap: ({ zone }) => {
+    tap: () => {
       if (isPanelOpen()) {
         closePanels();
         return;
       }
-      if (zone === ZONE.PAUSE) togglePlay();
-      else setChromeVisible(chrome.hasAttribute('hidden'));
+      setChromeVisible(chrome.hasAttribute('hidden'));
     },
     multiTap: ({ zone, count }) => {
       if (isPanelOpen()) {
@@ -283,43 +286,78 @@ export const createOverlay = ({
     menu.close();
     buttons.menu.setAttribute('aria-pressed', 'false');
     colorPanel.toggle();
-    const isOpen = colorPanel.isOpen();
-    buttons.colour.setAttribute('aria-pressed', String(isOpen));
-    visuals.suppressFade(isOpen);
+    buttons.colour.setAttribute('aria-pressed', String(colorPanel.isOpen()));
     setChromeVisible(true);
   });
 
   buttons.menu = buildButton('Settings', ICON.menu, () => {
     colorPanel.close();
-    visuals.suppressFade(false);
     buttons.colour.setAttribute('aria-pressed', 'false');
     menu.toggle();
     buttons.menu.setAttribute('aria-pressed', String(menu.isOpen()));
     setChromeVisible(true);
   });
 
+  // Where a thumb already is when the phone is held in landscape. Gecko has no
+  // web API for the floating window on Android — the system offers it when you
+  // leave the app with a video playing — so the button uses the standard API
+  // where it exists and otherwise sets the video up and says what to do.
+  const enterPictureInPicture = () => {
+    setChromeVisible(true);
+    if (video.paused) video.play().catch(() => {});
+    if (typeof video.requestPictureInPicture !== 'function') {
+      showToast('Swipe up to keep it floating', HINT_MS);
+      return;
+    }
+    video.requestPictureInPicture().catch(() => {
+      showToast('Swipe up to keep it floating', HINT_MS);
+    });
+  };
+
   topbar.append(
     buildButton('Exit player', ICON.exit, () => onExit()),
     el('div', { class: 'spacer' }),
     buttons.colour,
     buttons.menu,
+    buildButton('Picture in picture', ICON.pip, enterPictureInPicture),
   );
 
-  // Firefox for Android has no Picture-in-Picture API yet, so the button
-  // appears on its own once Gecko ships one.
-  if (document.pictureInPictureEnabled) {
-    const pip = buildButton('Picture in picture', ICON.pip, () => {
-      video.requestPictureInPicture().catch(() => {});
-    });
-    topbar.insertBefore(pip, buttons.colour);
-  }
+  chrome.append(
+    scrim,
+    topbar,
+    centreRow,
+    colorPanel.root,
+    menu.root,
+    seekBar.root,
+  );
 
-  chrome.append(topbar, centreRow, colorPanel.root, menu.root, seekBar.root);
+  // Reading a file the user picked themselves, straight into the cue list.
+  // Nothing leaves the device and nothing is parsed as markup.
+  const loadSubtitleFile = async () => {
+    const file = filePicker.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    filePicker.value = '';
+    const id = tracks.addCues(file.name.replace(/\.(srt|vtt)$/i, ''), text);
+    if (id === null) {
+      showToast('No subtitles in that file', HINT_MS);
+      return;
+    }
+    tracks.select(id);
+    menu.refresh();
+    showToast('Subtitles loaded', HINT_MS);
+  };
+
+  filePicker.addEventListener('change', () => {
+    loadSubtitleFile().catch((error) => {
+      console.error('Nocturne: could not read the subtitle file', error);
+      showToast('Could not read that file', HINT_MS);
+    });
+  });
 
   // Only the path data changes, so swapping play for pause cannot make the
   // button flicker or shift.
   const handlePlaybackChange = () => {
-    visuals.setPaused(video.paused);
     playPath.setAttribute('d', video.paused ? ICON.play : ICON.pause);
     setChromeVisible(true);
   };
@@ -351,6 +389,7 @@ export const createOverlay = ({
   setChromeVisible(true);
 
   return {
+    relayout: () => visuals.relayout(),
     destroy: () => {
       recognizer.destroy();
       seekBar.destroy();

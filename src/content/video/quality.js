@@ -1,50 +1,55 @@
-const labelFor = (source, index) => {
-  const explicit = source.dataset.label || source.getAttribute('title');
-  if (explicit) return explicit;
-  const match = /(\d{3,4})[pP]/.exec(source.src);
-  return match ? `${match[1]}p` : `Source ${index + 1}`;
-};
+import { ADAPTERS, AUTO_ID } from './qualityadapters.js';
 
-// Only what can honestly be offered: a site streaming HLS or DASH picks the
-// quality in its own JavaScript, out of reach from here.
+export { AUTO_ID };
+
+// A streaming player builds its quality ladder after the first segments land,
+// so the ladder is looked up again every time the sheet is opened rather than
+// once when the session starts.
 export const createQuality = (video) => {
-  const sources = Array.from(video.querySelectorAll('source'));
+  let adapter = null;
+  let options = [];
 
-  const options = sources.map((source, index) => ({
-    id: index,
-    label: labelFor(source, index),
-    src: source.src,
-  }));
+  const detect = () => {
+    for (const create of ADAPTERS) {
+      try {
+        const candidate = create(video);
+        if (candidate !== null) return candidate;
+      } catch (error) {
+        console.warn('Nocturne: a quality adapter threw while probing', error);
+      }
+    }
+    return null;
+  };
+
+  const refresh = () => {
+    adapter = detect();
+    if (adapter === null) {
+      options = [];
+      return options;
+    }
+    const listed = adapter.list();
+    const auto = adapter.hasAuto ? [{ id: AUTO_ID, label: 'Auto' }] : [];
+    options = listed.length > 0 ? auto.concat(listed) : [];
+    return options;
+  };
 
   const describe = () => {
     if (video.videoWidth === 0) return 'Set by the site';
     return `${video.videoWidth}×${video.videoHeight} · set by the site`;
   };
 
-  const select = (id) => {
-    const option = options[id];
-    if (!option || video.currentSrc === option.src) return;
-
-    const resumeAt = video.currentTime;
-    const wasPlaying = !video.paused;
-
-    const restore = () => {
-      video.removeEventListener('loadedmetadata', restore);
-      video.currentTime = resumeAt;
-      if (wasPlaying) video.play().catch(() => {});
-    };
-
-    video.addEventListener('loadedmetadata', restore);
-    video.src = option.src;
-    video.load();
-  };
+  refresh();
 
   return {
-    options,
+    refresh,
     describe,
-    select,
+    getOptions: () => options,
+    getEngine: () => (adapter === null ? null : adapter.name),
     isSwitchable: () => options.length > 1,
-    getCurrent: () =>
-      options.findIndex((option) => option.src === video.currentSrc),
+    getCurrent: () => (adapter === null ? null : adapter.current()),
+    select: (id) => {
+      if (adapter === null) return false;
+      return adapter.select(String(id)) === true;
+    },
   };
 };

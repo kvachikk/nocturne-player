@@ -1,44 +1,37 @@
 import { clampPan, clampScale, computeCoverScale, snapScale } from './zoom.js';
 
-const PAUSE_GRAYSCALE = 0.85;
-const PAUSE_BRIGHTNESS = 0.7;
-const FILTER_TRANSITION = 'filter 350ms ease';
-const TRANSFORM_TRANSITION = 'transform 220ms ease';
+const TRANSFORM_TRANSITION = 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)';
+const FILTER_TRANSITION = 'filter 320ms ease';
 
 // Every filter function is always present and always in the same order, so the
-// browser can interpolate between two states and the pause fade stays smooth.
-const buildFilter = ({ grayscale, saturate, contrast, brightness }) => {
+// browser can interpolate between two states smoothly.
+const buildFilter = ({ saturate, contrast, brightness }) => {
   // Untouched settings mean no filter at all, so the film is passed through
   // exactly as the site encoded it.
-  const isNeutral =
-    grayscale === 0 && saturate === 1 && contrast === 1 && brightness === 1;
+  const isNeutral = saturate === 1 && contrast === 1 && brightness === 1;
   if (isNeutral) return 'none';
-  return (
-    `grayscale(${grayscale}) saturate(${saturate}) ` +
-    `contrast(${contrast}) brightness(${brightness})`
-  );
+  const tone = `contrast(${contrast}) brightness(${brightness})`;
+  return `saturate(${saturate}) ${tone}`;
 };
 
-export const createVisuals = (video, stage, wasPlaying) => {
+// What the zoom means, rather than the number it currently works out to. The
+// stage changes size whenever the phone rotates, the system takes the video
+// into a floating window, or the app comes back from the background — and the
+// same intent has to survive all three.
+const FIT = 'fit';
+const FILL = 'fill';
+const FREE = 'free';
+
+export const createVisuals = (video, stage) => {
   const colour = { saturate: 1, contrast: 1, brightness: 1 };
   const view = { scale: 1, x: 0, y: 0 };
 
-  // Gecko reports the element as paused for a moment while it is re-parented,
-  // which would otherwise flash the pause fade over a film that is playing.
-  let isPaused = wasPlaying ? false : video.paused;
+  let intent = FIT;
+  let freeFactor = 1;
   let isPinching = false;
-  let isFadeSuppressed = false;
 
   const apply = () => {
-    // While the colour panel is open the fade is held off, otherwise the user
-    // would be tuning colours against a grey picture.
-    const isFaded = isPaused && !isFadeSuppressed;
-    const filter = buildFilter({
-      grayscale: isFaded ? PAUSE_GRAYSCALE : 0,
-      saturate: colour.saturate,
-      contrast: colour.contrast,
-      brightness: colour.brightness * (isFaded ? PAUSE_BRIGHTNESS : 1),
-    });
+    const filter = buildFilter(colour);
     const isUnzoomed = view.scale === 1 && view.x === 0 && view.y === 0;
     const offset = `translate(${view.x}px, ${view.y}px)`;
     const transform = isUnzoomed ? 'none' : `${offset} scale(${view.scale})`;
@@ -56,7 +49,17 @@ export const createVisuals = (video, stage, wasPlaying) => {
     return { width: rect.width, height: rect.height };
   };
 
-  const setScale = (scale) => {
+  const coverScale = () => {
+    const size = stageSize();
+    return computeCoverScale(
+      video.videoWidth,
+      video.videoHeight,
+      size.width,
+      size.height,
+    );
+  };
+
+  const place = (scale) => {
     const size = stageSize();
     const cover = computeCoverScale(
       video.videoWidth,
@@ -72,31 +75,49 @@ export const createVisuals = (video, stage, wasPlaying) => {
     return view.scale;
   };
 
-  apply();
-
-  const coverScale = () => {
-    const size = stageSize();
-    return computeCoverScale(
-      video.videoWidth,
-      video.videoHeight,
-      size.width,
-      size.height,
-    );
+  const remember = (scale) => {
+    const cover = coverScale();
+    if (scale === 1) {
+      intent = FIT;
+    } else if (scale === cover) {
+      intent = FILL;
+    } else {
+      intent = FREE;
+      freeFactor = cover > 0 ? scale / cover : 1;
+    }
   };
 
+  const setScale = (scale) => {
+    const applied = place(scale);
+    remember(applied);
+    return applied;
+  };
+
+  // Re-derives the scale the intent asks for at the current stage size. This is
+  // what stops the picture from being left at yesterday's crop — blown up and
+  // stretched — after the window has changed shape underneath it.
+  const relayout = () => {
+    if (video.videoWidth === 0) return false;
+    const cover = coverScale();
+    if (intent === FIT) {
+      place(1);
+    } else if (intent === FILL) {
+      place(cover);
+    } else {
+      place(freeFactor * cover);
+    }
+    return true;
+  };
+
+  apply();
+
   return {
-    setPaused: (value) => {
-      isPaused = value;
-      apply();
-    },
-    suppressFade: (value) => {
-      isFadeSuppressed = value;
-      apply();
-    },
+    relayout,
     // Crops the letterbox away, which is what most people want on a phone.
     fillScreen: () => {
       if (video.videoWidth === 0) return false;
-      setScale(coverScale());
+      intent = FILL;
+      place(coverScale());
       return true;
     },
     setColour: (patch) => {
