@@ -25,6 +25,30 @@ const YOUTUBE_LABELS = {
 const YOUTUBE_LOWEST = 'tiny';
 const YOUTUBE_HIGHEST = 'highres';
 
+// Best first, which is both the order the chips want and the order the ladder
+// is read in.
+const YOUTUBE_LADDER = [
+  { key: 'highres', height: 4320 },
+  { key: 'hd2160', height: 2160 },
+  { key: 'hd1440', height: 1440 },
+  { key: 'hd1080', height: 1080 },
+  { key: 'hd720', height: 720 },
+  { key: 'large', height: 480 },
+  { key: 'medium', height: 360 },
+  { key: 'small', height: 240 },
+  { key: 'tiny', height: 144 },
+];
+
+const youtubeKeyFor = (height) => {
+  for (const rung of YOUTUBE_LADDER) {
+    if (height >= rung.height) return rung.key;
+  }
+  return 'tiny';
+};
+
+const inLadderOrder = (keys) =>
+  YOUTUBE_LADDER.filter((rung) => keys.has(rung.key)).map((rung) => rung.key);
+
 const heightLabel = (height, fallback) =>
   typeof height === 'number' && height > 0 ? `${height}p` : fallback;
 
@@ -102,14 +126,44 @@ const createYouTubeAdapter = (video, host) => {
   // remembered here and the played value is only the opening guess.
   let chosen = null;
 
-  const levels = () =>
+  const advertised = () =>
     toArray(call(player, 'getAvailableQualityLevels')).filter(
       (level) => typeof level === 'string' && level !== AUTO_ID,
     );
 
+  // The phone player answers getAvailableQualityLevels() with nothing at all,
+  // so the ladder is worked out from the formats the video actually has. Every
+  // one of them carries the height it was encoded at, which is the same thing
+  // the quality names stand for.
+  const fromFormats = () => {
+    const response = call(player, 'getPlayerResponse');
+    const streaming = read(response, 'streamingData');
+    const formats = toArray(read(streaming, 'adaptiveFormats')).concat(
+      toArray(read(streaming, 'formats')),
+    );
+
+    const keys = new Set();
+    for (const format of formats) {
+      const height = read(format, 'height');
+      if (typeof height === 'number' && height > 0) {
+        keys.add(youtubeKeyFor(height));
+      }
+    }
+    return inLadderOrder(keys);
+  };
+
+  const levels = () => {
+    const listed = advertised();
+    return listed.length > 0 ? listed : fromFormats();
+  };
+
   return {
     name: 'youtube',
     hasAuto: true,
+    // Which of the two ways in produced something, in the words of whoever has
+    // to work out why a film is not offering the rung they want.
+    diagnose: () =>
+      `${advertised().length} listed, ${fromFormats().length} in formats`,
     list: () =>
       levels().map((level) => ({
         id: level,

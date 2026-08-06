@@ -41,7 +41,10 @@ export const createQuality = (video, host = null) => {
       video.videoWidth === 0
         ? ''
         : `${video.videoWidth}×${video.videoHeight} · `;
-    if (adapter !== null) return `${size}${adapter.name}: no levels yet`;
+    if (adapter !== null) {
+      const detail = adapter.diagnose ? adapter.diagnose() : 'no levels yet';
+      return `${size}${adapter.name}: ${detail}`;
+    }
     return `${size}set by the site`;
   };
 

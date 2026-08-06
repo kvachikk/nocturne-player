@@ -17,7 +17,7 @@ const HINT_MS = 2200;
 const SKIP_SECONDS = 10;
 const FILL_RETRY_MS = 400;
 const FRAME_LIFE_MS = 2000;
-const CHAPTER_DELAY_MS = 1200;
+const CHAPTER_TRIES_MS = [1200, 4000, 10000];
 const HANDOFF_GRACE_MS = 900;
 
 // The Android launcher, asked for by intent. Nothing is loaded from anywhere:
@@ -425,11 +425,14 @@ export const createOverlay = ({
   };
 
   // Walking the site's page data is not free, so it happens after the picture
-  // is up rather than in the way of it.
-  const chapterTimer = setTimeout(() => {
-    const chapters = readSiteChapters();
-    if (chapters.length > 0) seekBar.setChapters(chapters);
-  }, CHAPTER_DELAY_MS);
+  // is up rather than in the way of it — and more than once, because a page
+  // that was navigated to fills its data in some time after the video starts.
+  const chapterTimers = CHAPTER_TRIES_MS.map((delay) =>
+    setTimeout(() => {
+      const chapters = readSiteChapters(playerHost);
+      if (chapters.length > 0) seekBar.setChapters(chapters);
+    }, delay),
+  );
 
   restoreSettings();
   fillWhenReady();
@@ -445,7 +448,7 @@ export const createOverlay = ({
       stopScrub();
       if (chromeTimer !== null) clearTimeout(chromeTimer);
       if (toastTimer !== null) clearTimeout(toastTimer);
-      clearTimeout(chapterTimer);
+      for (const timer of chapterTimers) clearTimeout(timer);
       video.removeEventListener('pause', handlePlaybackChange);
       video.removeEventListener('play', handlePlaybackChange);
     },

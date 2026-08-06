@@ -56,22 +56,6 @@ const start = async () => {
     }, PERSIST_DELAY_MS);
   };
 
-  // Fullscreen without the takeover, for a film you are happy to watch with the
-  // site's own controls and only want bigger.
-  badge.onExpand = async (video) => {
-    try {
-      await video.requestFullscreen();
-    } catch (error) {
-      console.warn('Nocturne: the site refused fullscreen', error);
-      return;
-    }
-    try {
-      await screen.orientation.lock('landscape');
-    } catch {
-      // The lock is a nicety, not a requirement.
-    }
-  };
-
   badge.onActivate = async (video) => {
     if (session) return;
     badge.hide();
