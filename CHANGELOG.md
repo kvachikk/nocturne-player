@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.3.0][] - 2026-08-06
+
+Everything in this release comes from watching real films on a real phone with
+0.2.0 installed.
+
+### Added
+
+- **Quality selection.** The site keeps its ladder; the sheet asks for a rung.
+  Adapters for `<source>` lists, YouTube, hls.js, dash.js and Shaka, read
+  through the page's own objects — no code is injected into the page and nothing
+  is evaluated from a string. Where a player exposes no way in, the row reports
+  the resolution being played instead of offering a choice that does nothing.
+- **Captions from players that paint their own.** YouTube's caption list is read
+  through its player API and the text it renders is mirrored into the player's
+  cue layer, which is why subtitles were missing there before. The same mirror
+  covers Shaka, video.js, JW Player, Plyr and Playerjs.
+- **Picture-in-picture button**, at the top right. Gecko ships no Web API for it
+  on Android, so it uses the standard call where that exists and otherwise
+  prepares the video and says what to do.
+- **Fullscreen switch** in the settings sheet. Off runs the player as an overlay
+  instead of taking the screen, which leaves Android's ordinary single swipe
+  home working.
+- Loading an `.srt` / `.vtt` file now actually loads it: the file input had no
+  handler, so the button did nothing.
+
+### Changed
+
+- **Pausing is the play button and nothing else.** The invisible pause zone that
+  covered the whole picture is gone; a tap anywhere else brings the controls up
+  or puts them away.
+- **The seek band sits above the bottom of the screen**, clear of the Android
+  home swipe, which used to be read as a scrub and threw the film into the
+  middle.
+- **The badge sits halfway up the right edge** of an inline video rather than in
+  the bottom corner, where it covered the site's own controls.
+- Motion follows one easing curve throughout, with scrims and shadows under the
+  controls so they stay legible over a bright picture.
+- The launcher no longer asks Gecko to hide the navigation UI, which is what put
+  Android into sticky immersive mode.
+
+### Fixed
+
+- **The picture stays centred and keeps its shape.** A site that rewrites the
+  video's inline style — YouTube does it on every layout pass — could push the
+  picture against an edge or stretch it across the screen after a return from
+  another app. Position and offsets are pinned along with the size and re-pinned
+  whenever the site writes over them, and the zoom is re-derived from what the
+  viewer asked for whenever the stage changes shape.
+- **Colour starts neutral.** Values stored out of range, or of the wrong type,
+  now fall back to the neutral one instead of tinting a film for reasons the
+  viewer cannot see.
+- **No more fade to grey while paused.** People pause to look at the picture.
+- Leaving the app no longer tears the session down. Losing fullscreen while the
+  app is on its way to the background is what Android's floating-window hand-off
+  looks like, and it is now told apart from the viewer leaving the player.
+- A quality switch that empties the media element no longer backs the player
+  out; the check waits to see whether the element really was torn down.
+
 ## [0.2.0][] - 2026-08-02
 
 First release submitted to addons.mozilla.org.
@@ -51,5 +109,6 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.3.0
 [0.2.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.2.0

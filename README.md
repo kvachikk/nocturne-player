@@ -22,9 +22,11 @@ adds them.
 Built for **ordinary sites that play video through a plain `<video>` element** —
 the kind of site you use to watch a film or a series.
 
-**Not** for YouTube, Vimeo or TikTok. They ship their own player layers, and
-overriding those is a fundamentally different (and much larger) problem. This
-extension deliberately does not try.
+It also works on **YouTube**, which was not the original plan: the site's own
+player keeps running underneath, and the extension drives it through the API the
+page already exposes — the quality ladder, the caption track — rather than
+re-implementing it. Sites that hide their player behind a proprietary layer with
+no such API still fall back to the plain controls.
 
 ## Features
 
@@ -35,11 +37,10 @@ your finger, like the scrubber in Safari on iOS. Moving your finger away from
 the bar vertically reduces the scrubbing speed, so you can land on an exact
 moment instead of overshooting.
 
-**Volume** — a vertical strip on the right edge, same relative-drag feel.
-
-**Tap to pause** — a large invisible zone in the middle of the screen, plus a
-visible button when the controls are showing. When paused, the picture fades to
-grey, like Netflix.
+**Tap to pause** — the play button and nothing else. Tapping anywhere else on
+the picture brings the controls up or puts them away, so a thumb landing on the
+screen can never stop the film by accident. Pausing leaves the colour alone, for
+when you paused to look at something.
 
 **Hold for 2x** — hold the right zone to play at double speed, hold the left
 zone to rewind. Double-tap either zone for ±10 seconds.
@@ -52,12 +53,19 @@ dark, with adjustable intensity.
 
 **Colour** — brightness, contrast and saturation. Three sliders, nothing more.
 
-**Subtitles** — use the site's own tracks or load an `.srt` / `.vtt` file from
-your phone. Adjustable size, background, position, and a sync offset for when
-the subtitles drift.
+**Subtitles** — the site's own text tracks, the captions a player like
+YouTube's paints for itself, or an `.srt` / `.vtt` file from your phone.
+Adjustable size and a sync offset for when the subtitles drift.
 
-**Lock** — locks all gestures so your palm cannot pause the film. Unlocking
-takes two deliberate gestures.
+**Quality** — pick the rung of the ladder rather than letting the site choose
+for you. Works with `<source>` lists, YouTube, hls.js, dash.js and Shaka; where
+a player exposes nothing, the sheet says what is playing instead of offering a
+choice that would do nothing.
+
+**Picture in picture** — the button at the top right hands the film to the
+system's floating window where the platform allows it, and the player survives
+being sent to the background so Android's own hand-off works when you swipe
+away.
 
 ## Privacy
 
@@ -89,22 +97,27 @@ See [PRIVACY.md](PRIVACY.md).
 
 These are platform limits, not oversights:
 
-- **Picture-in-Picture does not work on Android.** Firefox for Android has no
-  PiP Web API — `requestPictureInPicture()` rejects with `NotSupportedError`
-  because the underlying GeckoView support does not exist yet. The button is
-  written and feature-detected, so it stays hidden on Android and will appear on
-  its own when Gecko ships support.
-- **Video quality usually cannot be changed.** Sites that stream over HLS or
-  DASH pick the quality in their own JavaScript, and no extension can reach into
-  that generically. Where a site offers several `<source>` elements, the quality
-  menu switches between them; otherwise it shows the current resolution as
-  read-only information.
-- **Volume is the video's volume, not the system volume.** The web platform has
-  no access to the device volume.
+- **There is no Web API for Picture-in-Picture on Android.** Gecko does not
+  ship `requestPictureInPicture()` there. What Android does offer is its own
+  hand-off: leave the app while a video is playing and the system floats it. The
+  button uses the standard API where it exists and otherwise prepares the video
+  and says what to do, and the session now survives being backgrounded so the
+  system hand-off is not torn down halfway through.
+- **Quality depends on what the site's player exposes.** A player that keeps its
+  engine in a closure cannot be reached from an extension. The common ones —
+  `<source>` lists, YouTube, hls.js, dash.js, Shaka — are covered; anything else
+  reports the resolution it is playing and leaves the choice to the site.
+- **Volume is left to the phone's own buttons.** The web platform has no access
+  to the device volume.
 - **Rewind is not "negative 2x".** `playbackRate` cannot go below zero, so
   holding the left zone seeks backwards continuously at roughly 2x instead.
 - **Landscape lock is best-effort.** Gecko may refuse the request; the player
   carries on without it.
+- **Android asks for a second swipe to leave a fullscreen app.** That is the
+  system's sticky-immersive behaviour, not something a page can turn off. The
+  player no longer asks Gecko to hide the navigation UI, and the settings sheet
+  has a **Fullscreen** switch: turn it off and the player runs as an overlay,
+  which leaves the ordinary single swipe home.
 
 ## Install
 
