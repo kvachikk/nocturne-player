@@ -1,3 +1,4 @@
+import { chapterAt } from '../video/chapters.js';
 import { formatClock, formatRemaining } from '../../lib/time.js';
 import { el } from '../shell.js';
 
@@ -23,24 +24,56 @@ export const createSeekBar = (video) => {
   const elapsed = el('span', { class: 'time', text: '0:00' });
   const remaining = el('span', { class: 'time', text: '--:--' });
   const fill = el('div', { class: 'seek-fill' });
-  const track = el('div', { class: 'seek-track' }, [fill]);
+  const marks = el('div', { class: 'seek-marks' });
+  const track = el('div', { class: 'seek-track' }, [fill, marks]);
   const headTime = el('span', { class: 'seek-time', text: '0:00' });
   const area = el('div', { class: 'seek-area' }, [track, headTime]);
+  const chapterLabel = el('div', { class: 'chapter' });
   const root = el('div', { class: 'seekbar' }, [
+    chapterLabel,
     el('div', { class: 'seek-row' }, [elapsed, area, remaining]),
   ]);
 
   let isScrubbing = false;
   let scrubTime = 0;
   let lastPreviewAt = 0;
+  let chapters = [];
+  let arePlaced = false;
 
   const duration = () => (Number.isFinite(video.duration) ? video.duration : 0);
+
+  // The dividers can only be placed once the film has told us how long it is,
+  // so placing them is retried from the paint that follows.
+  const placeMarks = () => {
+    const total = duration();
+    if (arePlaced || chapters.length === 0 || total === 0) return;
+    const dividers = chapters
+      .filter((chapter) => chapter.start > 0 && chapter.start < total)
+      .map((chapter) => {
+        const mark = el('span', { class: 'seek-mark' });
+        mark.style.left = `${(chapter.start / total) * 100}%`;
+        return mark;
+      });
+    marks.replaceChildren(...dividers);
+    arePlaced = true;
+  };
+
+  const showChapter = (time) => {
+    if (chapters.length === 0) return;
+    const chapter = chapterAt(chapters, time);
+    const title = chapter === null ? '' : chapter.title;
+    if (chapterLabel.textContent === title) return;
+    chapterLabel.textContent = title;
+    chapterLabel.classList.toggle('is-visible', title !== '');
+  };
 
   // While scrubbing the left label holds the moment the drag started, so the
   // target time on the line is not simply repeated back to the user and they
   // can see where to return to.
   const paint = (time) => {
     const total = duration();
+    placeMarks();
+    showChapter(time);
     const ratio = total > 0 ? Math.min(1, Math.max(0, time / total)) : 0;
     fill.style.transform = `scaleX(${ratio})`;
     area.style.setProperty('--progress', `${ratio * 100}%`);
@@ -103,6 +136,12 @@ export const createSeekBar = (video) => {
     start,
     move,
     end,
+    setChapters: (list) => {
+      chapters = list;
+      arePlaced = false;
+      placeMarks();
+      showChapter(video.currentTime);
+    },
     destroy: () => {
       video.removeEventListener('timeupdate', sync);
       video.removeEventListener('durationchange', sync);
