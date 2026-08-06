@@ -47,6 +47,19 @@ export const createBadge = () => {
     pinStyle(shell.host, { opacity: '0', 'pointer-events': 'none' });
   };
 
+  // Halfway up the right edge, which is the one part of a video that no player
+  // puts a control on: the bottom corner sat on top of the site's own buttons
+  // and swallowed taps meant for them.
+  const placement = (rect) => {
+    const left = rect.right - SIZE_PX - INSET_PX;
+    const top = rect.top + rect.height / 2 - SIZE_PX / 2;
+    const maxTop = window.innerHeight - SIZE_PX - INSET_PX;
+    return {
+      left: `${Math.max(INSET_PX, left)}px`,
+      top: `${Math.min(maxTop, Math.max(INSET_PX, top))}px`,
+    };
+  };
+
   // Teardown is the watcher's job: when the video goes away it reports a new
   // primary and calls hide(). Here we only stop drawing.
   const reposition = () => {
@@ -63,8 +76,7 @@ export const createBadge = () => {
     pinStyle(shell.host, {
       opacity: '1',
       'pointer-events': 'auto',
-      left: `${rect.right - SIZE_PX - INSET_PX}px`,
-      top: `${rect.bottom - SIZE_PX - INSET_PX}px`,
+      ...placement(rect),
     });
   };
 
