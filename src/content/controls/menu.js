@@ -93,6 +93,7 @@ export const createMenu = ({
   onPickFile,
   onRate,
   onImmersive,
+  onNotice,
 }) => {
   const speedRow = buildChipRow('Speed');
   const setSpeed = paintChips(
@@ -127,7 +128,10 @@ export const createMenu = ({
       return;
     }
     const setQuality = paintChips(qualityRow, options, (id) => {
-      quality.select(id);
+      const chosen = options.find((option) => String(option.id) === String(id));
+      const label = chosen ? chosen.label : String(id);
+      const isDone = quality.select(id);
+      onNotice(isDone ? `Quality: ${label}` : 'The site would not change it');
     });
     setQuality(quality.getCurrent());
   };

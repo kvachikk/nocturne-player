@@ -1,3 +1,4 @@
+import { readSiteChapters } from './video/chapters.js';
 import { createColorPanel } from './controls/colorpanel.js';
 import { createMenu } from './controls/menu.js';
 import { createQuality } from './video/quality.js';
@@ -15,6 +16,16 @@ const TOAST_MS = 900;
 const HINT_MS = 2200;
 const SKIP_SECONDS = 10;
 const FILL_RETRY_MS = 400;
+const FRAME_LIFE_MS = 2000;
+const CHAPTER_DELAY_MS = 1200;
+const HANDOFF_GRACE_MS = 900;
+
+// The Android launcher, asked for by intent. Nothing is loaded from anywhere:
+// the URL names an activity on the phone, and the browser either hands it to
+// the system or ignores it.
+const HOME_INTENT =
+  'intent://#Intent;action=android.intent.action.MAIN;' +
+  'category=android.intent.category.HOME;end';
 const FILL_ATTEMPTS = 25;
 
 const ICON = {
@@ -74,6 +85,7 @@ export const createOverlay = ({
   onExit,
   settings,
   onPersist,
+  playerHost,
   onImmersiveChange,
 }) => {
   const surface = el('div', { class: 'layer surface' });
@@ -98,7 +110,7 @@ export const createOverlay = ({
   video.playbackRate = 1;
 
   const visuals = createVisuals(video, stage);
-  const quality = createQuality(video);
+  const quality = createQuality(video, playerHost);
   const tracks = createTrackManager(
     video,
     (text) => {
@@ -106,6 +118,7 @@ export const createOverlay = ({
       cueBox.classList.toggle('is-visible', text !== '');
     },
     (id) => menuRef.setSubtitle(id),
+    playerHost,
   );
 
   const seekBar = createSeekBar(video);
@@ -147,6 +160,7 @@ export const createOverlay = ({
     },
     onPickFile: () => filePicker.click(),
     onRate: () => {},
+    onNotice: (text) => showToast(text, HINT_MS),
     onImmersive: (isOn) => {
       onImmersiveChange(isOn);
       onPersist({ isFullscreenTakeoverOn: isOn });
@@ -299,28 +313,49 @@ export const createOverlay = ({
     setChromeVisible(true);
   });
 
-  // Where a thumb already is when the phone is held in landscape. Gecko has no
-  // web API for the floating window on Android — the system offers it when you
-  // leave the app with a video playing — so the button uses the standard API
-  // where it exists and otherwise sets the video up and says what to do.
+  // Gecko has no Web API for the floating window on Android. What Android has
+  // is a rule: a video playing in a fullscreen app keeps playing, floating,
+  // once that app goes to the background. So the button does the one thing
+  // that reliably triggers it — it goes to the home screen.
+  //
+  // The launcher is asked for through an intent URL in a throwaway frame. In a
+  // frame, a browser that does not handle the scheme fails quietly instead of
+  // navigating the film away, which is what would happen from the top window.
+  const leaveForHomeScreen = () => {
+    const attributes = { class: 'hidden-frame', 'aria-hidden': 'true' };
+    const frame = el('iframe', attributes);
+    document.body.append(frame);
+    try {
+      frame.src = HOME_INTENT;
+    } catch (error) {
+      console.warn('Nocturne: could not reach the home screen', error);
+    }
+    setTimeout(() => frame.remove(), FRAME_LIFE_MS);
+  };
+
   const enterPictureInPicture = () => {
     setChromeVisible(true);
     if (video.paused) video.play().catch(() => {});
-    if (typeof video.requestPictureInPicture !== 'function') {
-      showToast('Swipe up to keep it floating', HINT_MS);
+
+    if (typeof video.requestPictureInPicture === 'function') {
+      video.requestPictureInPicture().catch(leaveForHomeScreen);
       return;
     }
-    video.requestPictureInPicture().catch(() => {
+
+    leaveForHomeScreen();
+    // If nothing took us away, say what does.
+    setTimeout(() => {
+      if (document.hidden) return;
       showToast('Swipe up to keep it floating', HINT_MS);
-    });
+    }, HANDOFF_GRACE_MS);
   };
 
   topbar.append(
     buildButton('Exit player', ICON.exit, () => onExit()),
     el('div', { class: 'spacer' }),
+    buildButton('Picture in picture', ICON.pip, enterPictureInPicture),
     buttons.colour,
     buttons.menu,
-    buildButton('Picture in picture', ICON.pip, enterPictureInPicture),
   );
 
   chrome.append(
@@ -389,6 +424,13 @@ export const createOverlay = ({
     setTimeout(fillWhenReady, FILL_RETRY_MS);
   };
 
+  // Walking the site's page data is not free, so it happens after the picture
+  // is up rather than in the way of it.
+  const chapterTimer = setTimeout(() => {
+    const chapters = readSiteChapters();
+    if (chapters.length > 0) seekBar.setChapters(chapters);
+  }, CHAPTER_DELAY_MS);
+
   restoreSettings();
   fillWhenReady();
   shadow.append(surface, cueBox, chrome, toast, filePicker);
@@ -403,6 +445,7 @@ export const createOverlay = ({
       stopScrub();
       if (chromeTimer !== null) clearTimeout(chromeTimer);
       if (toastTimer !== null) clearTimeout(toastTimer);
+      clearTimeout(chapterTimer);
       video.removeEventListener('pause', handlePlaybackChange);
       video.removeEventListener('play', handlePlaybackChange);
     },
