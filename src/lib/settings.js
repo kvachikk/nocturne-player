@@ -23,7 +23,7 @@ const KEYS = Object.keys(DEFAULTS);
 // rather than tinting somebody's first film for reasons they cannot see.
 const RANGES = {
   warmth: { min: 0, max: 0.45 },
-  brightness: { min: 0.5, max: 1.5 },
+  brightness: { min: 0.4, max: 2 },
   contrast: { min: 0.5, max: 1.5 },
   saturate: { min: 0, max: 2 },
   subtitleScale: { min: 0.5, max: 2 },

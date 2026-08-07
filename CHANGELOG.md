@@ -80,6 +80,10 @@ Everything in this release comes from watching real films on a real phone with
 - **No more fade to grey while paused.** People pause to look at the picture.
 - **Quieter.** Choosing a quality no longer prints a message over the film; the
   chip lighting up says it. Only a refusal is worth a word.
+- **Brightness reaches further and moves faster**: 40%–200% in steps of ten,
+  rather than 50%–150% in steps of five. A film mastered dark can now actually
+  be lifted, and one press does something you can see — at five percent a press
+  the control read as one that did nothing.
 - Leaving the app no longer tears the session down. Losing fullscreen while the
   app is on its way to the background is what Android's floating-window hand-off
   looks like, and it is now told apart from the viewer leaving the player.

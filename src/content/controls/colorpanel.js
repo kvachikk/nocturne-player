@@ -8,12 +8,16 @@ const asWarmth = (value) =>
 // Steppers rather than sliders: a thumb can hit a 44px button while holding the
 // phone, which is not true of a slider handle.
 const ROWS = [
+  // A wider reach and a bigger step than the rest: brightness is the one people
+  // come here for, on a dark film in a dark room, and at 5% a press with a
+  // ceiling of 150% it took ten presses to do anything you would call
+  // brightening — which reads as a control that does not work.
   {
     key: 'brightness',
     label: 'Brightness',
-    min: 0.5,
-    max: 1.5,
-    step: 0.05,
+    min: 0.4,
+    max: 2,
+    step: 0.1,
     value: 1,
     format: asPercent,
   },
