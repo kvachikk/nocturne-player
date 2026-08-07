@@ -88,7 +88,6 @@ export const createMenu = ({
   video,
   tracks,
   quality,
-  settings,
   onStyle,
   onPickFile,
   onRate,
@@ -128,10 +127,10 @@ export const createMenu = ({
       return;
     }
     const setQuality = paintChips(qualityRow, options, (id) => {
-      const chosen = options.find((option) => String(option.id) === String(id));
-      const label = chosen ? chosen.label : String(id);
-      const isDone = quality.select(id);
-      onNotice(isDone ? `Quality: ${label}` : 'The site would not change it');
+      // Only the refusal is worth a word. The chip lighting up already says
+      // the choice was taken, and a message over the film for every tap is
+      // noise the viewer did not ask for.
+      if (!quality.select(id)) onNotice('The site would not change it');
     });
     setQuality(quality.getCurrent());
   };
@@ -171,16 +170,16 @@ export const createMenu = ({
     tracks.setNative(!tracks.isNative());
   });
 
-  const immersiveToggle = buildToggle(
-    'Fullscreen',
-    settings.isFullscreenTakeoverOn,
-    onImmersive,
-  );
+  const immersiveToggle = buildToggle('Fullscreen', true, onImmersive);
 
   paintSubtitles();
   qualityRow.chips.replaceChildren(buildNote('Reading the site…'));
 
+  // Quality leads. It is the row people open this sheet for, it is the longest,
+  // and on a phone held sideways the sheet scrolls — so anything below the
+  // first two rows is a row somebody has to go looking for.
   const root = el('div', { class: 'panel menu' }, [
+    qualityRow.row,
     speedRow.row,
     subtitleRow.row,
     sizeRow,
@@ -189,7 +188,6 @@ export const createMenu = ({
       el('span', { class: 'menu-label', text: 'Source' }),
       el('div', { class: 'chips' }, [loadButton, nativeToggle]),
     ]),
-    qualityRow.row,
     el('div', { class: 'menu-row' }, [
       el('span', { class: 'menu-label', text: 'Screen' }),
       el('div', { class: 'chips' }, [immersiveToggle]),
@@ -207,6 +205,10 @@ export const createMenu = ({
   const open = () => {
     refresh();
     root.classList.add('is-open');
+    // Opened at the top, always. The sheet scrolls, and a chip that still has
+    // focus from the last time drags the view down to itself, which hides the
+    // row the sheet was opened for.
+    root.scrollTop = 0;
   };
 
   return {

@@ -359,21 +359,36 @@
   right: max(30px, env(safe-area-inset-right));
   left: auto;
   width: min(560px, 68vw);
-  max-height: calc(100% - 120px);
+  /* Ends where the seek bar begins: the sheet is anchored 60px down and the
+   * bar rides 12vh off the bottom, so the two can never meet. Viewport units
+   * rather than percentages — the sheet's parent is a stretched box with no
+   * height of its own, against which a percentage means nothing. */
+  max-height: calc(100vh - 96px - 18vh);
   overflow-y: auto;
-  gap: 8px;
+  overscroll-behavior: contain;
+  gap: 0;
 }
 
+/* A row is as tall as its chips, however many lines they take: the quality
+ * ladder runs to nine rungs and wraps on a phone held sideways, and a row with
+ * a fixed height would have left it lying across the row beneath. */
 .menu-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  min-height: 40px;
+  padding: 7px 0;
+}
+
+/* A hairline instead of a gap: with rows of different heights, a line is what
+ * makes it plain which chips belong to which label. */
+.menu-row + .menu-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .menu-label {
   flex: none;
   width: 84px;
+  padding-top: 9px;
   font-size: 13px;
 }
 
@@ -386,7 +401,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  row-gap: 8px;
+  column-gap: 6px;
 }
 
 .chip {
