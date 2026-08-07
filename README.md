@@ -110,10 +110,15 @@ These are platform limits, not oversights:
   the home screen — and the session survives being backgrounded so the hand-off
   is not torn down halfway through. Whether the window actually floats is the
   system's decision, not the extension's.
-- **Quality depends on what the site's player exposes.** A player that keeps its
-  engine in a closure cannot be reached from an extension. The common ones —
-  `<source>` lists, YouTube, hls.js, dash.js, Shaka — are covered; anything else
-  reports the resolution it is playing and leaves the choice to the site.
+- **Quality depends on what the site's player exposes.** The common ones are
+  covered — `<source>` lists, YouTube, hls.js, dash.js, Shaka — but a player
+  that keeps its engine inside a closure cannot be reached from an extension at
+  all. Playerjs, which many film sites embed, is the case in point: the page
+  publishes the hls.js _constructor_ and a player object with one opaque
+  method, and the instance holding the quality ladder is never handed out.
+  There the row reports the resolution being played instead of offering a
+  choice that would do nothing. Reaching those players by driving their own
+  menus is being looked at for a later version.
 - **Volume is left to the phone's own buttons.** The web platform has no access
   to the device volume.
 - **Rewind is not "negative 2x".** `playbackRate` cannot go below zero, so

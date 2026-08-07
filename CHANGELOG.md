@@ -113,6 +113,14 @@ Everything in this release comes from watching real films on a real phone with
   twenty properties on every mutation it caused — which is what made the player
   crawl and fullscreen take seconds to arrive.
 
+### Notes
+
+- Quality on a site that embeds Playerjs — common on film sites — is still the
+  site's to choose. The page publishes the hls.js constructor and a player
+  object with one opaque method; the instance that holds the ladder never
+  leaves the closure. Driving the player's own menu is the way in, and it is
+  left for a later version.
+
 ## [0.2.0][] - 2026-08-02
 
 First release submitted to addons.mozilla.org.

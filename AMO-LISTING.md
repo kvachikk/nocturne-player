@@ -82,9 +82,11 @@ sends nothing anywhere, and it can be switched off per site from the popup.
   is the hand-off the system already knows how to float — whether it floats is
   Android's decision, not the extension's.
 - Quality depends on what the site's player exposes. A player that keeps its
-  engine in a closure cannot be reached from an extension; the sheet then
-  reports the resolution being played rather than offering a choice that would
-  do nothing.
+  engine inside a closure cannot be reached from an extension at all — Playerjs,
+  which many film sites embed, hands out nothing but an opaque method — and the
+  sheet then reports the resolution being played rather than offering a choice
+  that would do nothing. YouTube, `<source>` lists, hls.js, dash.js and Shaka
+  are covered.
 - Volume is left to the phone's own buttons: the web platform has no access to
   the system volume.
 - Hold-to-scrub steps the clock rather than raising `playbackRate`, which
