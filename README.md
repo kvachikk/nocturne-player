@@ -57,10 +57,10 @@ dark, with adjustable intensity.
 YouTube's paints for itself, or an `.srt` / `.vtt` file from your phone.
 Adjustable size and a sync offset for when the subtitles drift.
 
-**Quality** — pick the rung of the ladder rather than letting the site choose
-for you. Works with `<source>` lists, YouTube, hls.js, dash.js and Shaka; where
-a player exposes nothing, the sheet says what is playing instead of offering a
-choice that would do nothing.
+**Quality** — the first row of the sheet: pick the rung of the ladder rather
+than letting the site choose for you. Works with `<source>` lists, YouTube,
+hls.js, dash.js and Shaka; where a player exposes nothing, the sheet says what
+is playing instead of offering a choice that would do nothing.
 
 **Picture in picture** — the last button in the top row asks Android for the
 home screen and leaves the film playing behind it, which is the hand-off the

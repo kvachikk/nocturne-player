@@ -35,9 +35,14 @@ Everything in this release comes from watching real films on a real phone with
   fullscreen arrows, sitting on the site's own small player. It fades out after
   a few seconds untouched and comes back on any tap, so it is there when it is
   wanted and gone when it is not.
+- **Quality leads the settings sheet**, above speed and subtitles. The rows are
+  as tall as their chips with a hairline between them, and the sheet ends above
+  the seek bar — a nine-rung quality ladder used to wrap across the row beneath
+  it and run off the bottom of the screen.
 - **Fullscreen switch** in the settings sheet. Off runs the player as an overlay
   instead of taking the screen, which leaves Android's ordinary single swipe
-  home working.
+  home working. It applies to the session it is used in and is deliberately not
+  remembered, the way playback speed is not.
 - Loading an `.srt` / `.vtt` file now actually loads it: the file input had no
   handler, so the button did nothing.
 
@@ -73,15 +78,29 @@ Everything in this release comes from watching real films on a real phone with
   touched once. Values stored out of range or of the wrong type now fall back
   to the neutral one as well.
 - **No more fade to grey while paused.** People pause to look at the picture.
+- **Quieter.** Choosing a quality no longer prints a message over the film; the
+  chip lighting up says it. Only a refusal is worth a word.
 - Leaving the app no longer tears the session down. Losing fullscreen while the
   app is on its way to the background is what Android's floating-window hand-off
   looks like, and it is now told apart from the viewer leaving the player.
 - A quality switch that empties the media element no longer backs the player
   out; the check waits to see whether the element really was torn down.
-- **YouTube on the phone offers a quality ladder again.** Its player answers
-  `getAvailableQualityLevels()` with an empty list there, so the rungs are read
-  off the heights of the formats the video itself carries, and the row says
-  which of the two ways in produced them.
+- **Every call into a site's player was being refused.** `method.apply()`
+  reaches the page's own `Function.prototype.apply`, and the page — the less
+  privileged side — cannot read the `length` of an array built in the content
+  script's compartment, so each call died with "Permission denied to access
+  property length" before it arrived. Calls go through `Reflect.apply` now.
+  This one bug is why quality, captions and chapters were all missing on
+  YouTube; all three work.
+- **A drag along the seek bar no longer throws the viewer back to the page.**
+  YouTube removes its `<video>` element when it is told a seek is final, and a
+  drag was telling it so every 120ms. Seeks go through the site's own `seekTo`
+  where there is one, and only the finger coming off counts as final. The watch
+  that decides a video has been torn down is slower and harder to convince too.
+- **The fullscreen button takes the screen.** It used to obey a stored switch
+  that a stray tap could turn off for good, after which the button looked
+  broken. The switch in the sheet still drops back to the overlay, for the
+  session it is used in.
 - The site's player object is captured before the video is moved, so the
   quality, caption and chapter readers still have something to ask once the
   element no longer sits inside it.
