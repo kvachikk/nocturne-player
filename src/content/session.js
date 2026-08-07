@@ -1,8 +1,26 @@
 import { createOverlay } from './ui.js';
 import { createShadowHost, el, pinStyle } from './shell.js';
+import { findApiAncestor } from './video/pageapi.js';
 import playerCss from './player.css';
 
+// The names a site's own player hangs off the element wrapping the video.
+const PLAYER_API_MARKERS = [
+  'getAvailableQualityLevels',
+  'setPlaybackQualityRange',
+  'getOption',
+  'levels',
+];
+
 const STALL_GRACE_MS = 400;
+// Long enough for a site to finish re-attaching its stream. A scrub past the
+// buffer makes YouTube tear its stream down and build it again, which on a slow
+// connection takes seconds — and the player used to back out from under the
+// finger that was scrubbing. A few seconds of black is a far smaller price than
+// being thrown out of the film.
+const EMPTIED_GRACE_MS = 6000;
+const NETWORK_EMPTY = 0;
+const RECOVER_DELAY_MS = 250;
+const MAX_REPINS = 240;
 
 const STAGE_STYLE = {
   position: 'fixed',
@@ -20,7 +38,18 @@ const STAGE_STYLE = {
   'z-index': '2147483646',
 };
 
+// A site's own player keeps rewriting the video's inline style — YouTube sets
+// a pixel width, height and offset on every layout pass — which is what used to
+// leave the picture stuck against the left edge or stretched across the screen
+// after coming back from another app. Position and offsets are pinned here too,
+// not only the size, and re-pinned whenever the site writes over them.
 const VIDEO_STYLE = {
+  position: 'relative',
+  left: '0',
+  top: '0',
+  right: 'auto',
+  bottom: 'auto',
+  float: 'none',
   width: '100%',
   height: '100%',
   'max-width': 'none',
@@ -29,11 +58,21 @@ const VIDEO_STYLE = {
   'min-height': '0',
   margin: '0',
   padding: '0',
+  border: '0',
   display: 'block',
   'object-fit': 'contain',
+  'object-position': '50% 50%',
   background: '#000',
   'transform-origin': 'center center',
 };
+
+// The crop and the colour are written by the visuals rather than pinned from
+// the table above, but they are watched all the same: a site that rewrites the
+// video's style wipes them, and the guard has to notice that it did.
+const VIDEO_STYLE_KEYS = Object.keys(VIDEO_STYLE).concat([
+  'transform',
+  'filter',
+]);
 
 const captureVideoState = (video) => ({
   cssText: video.style.cssText,
@@ -66,10 +105,31 @@ const auditRestore = (video, state) => {
   return false;
 };
 
+// The style is compared against what the browser serialised, never against
+// what we asked for: setting `left: 0` reads back as `0px`, so comparing with
+// the input would find a difference every time and re-pin on the strength of
+// its own mutation record — a loop that recalculates style until the phone
+// crawls.
+const readStyle = (video) => {
+  const seen = {};
+  for (const name of VIDEO_STYLE_KEYS) {
+    seen[name] = video.style.getPropertyValue(name);
+  }
+  return seen;
+};
+
+const isSameStyle = (first, second) => {
+  if (first === null) return false;
+  return VIDEO_STYLE_KEYS.every((name) => first[name] === second[name]);
+};
+
+// navigationUI is deliberately left at its default. Asking Gecko to hide it put
+// Android into sticky immersive mode, where the first swipe up only brings the
+// system bars back and a second one is needed to leave the app.
 const requestFullscreen = async (element) => {
   if (!document.fullscreenEnabled) return false;
   try {
-    await element.requestFullscreen({ navigationUI: 'hide' });
+    await element.requestFullscreen();
     return true;
   } catch (error) {
     console.warn('Nocturne: fullscreen refused', error);
@@ -94,18 +154,30 @@ const unlockOrientation = () => {
   }
 };
 
+// Losing fullscreen is how the user leaves the player, and it is also how
+// Android announces that it is taking the video into a floating window. The two
+// look identical at the moment they happen and only differ a beat later, when
+// an app that has gone into the background is no longer the focused one.
+const isBackgrounded = () => document.hidden || !document.hasFocus();
+
 export const createSession = (video, { onExit, settings, onPersist }) => {
   const state = captureVideoState(video);
+  const playerHost = findApiAncestor(video, PLAYER_API_MARKERS);
   const anchor = document.createComment('nocturne-player');
   const stage = document.createElement('div');
   const ui = createShadowHost(playerCss);
 
   const teardown = [];
+  const timers = new Set();
 
   let isActive = false;
   let isOrientationLocked = false;
-  let stallTimer = null;
+  let isFullscreenWanted = true;
+  let styleGuard = null;
+  let pinnedStyle = null;
+  let repinCount = 0;
   let overlay = null;
+  let relayoutFrame = 0;
 
   const layers = {
     warm: el('div', { class: 'layer warm' }),
@@ -117,13 +189,61 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     teardown.push(() => target.removeEventListener(type, handler, options));
   };
 
+  const later = (handler, delay) => {
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      handler();
+    }, delay);
+    timers.add(timer);
+    return timer;
+  };
+
+  // Re-pinning is bounded: a site that fights back with !important of its own
+  // would otherwise trade writes with us for as long as the film lasts. After
+  // the budget runs out the guard steps aside and the picture is re-fitted on
+  // the ordinary relayout events instead.
+  const pinVideo = () => {
+    if (isSameStyle(pinnedStyle, readStyle(video))) return;
+
+    repinCount += 1;
+    if (repinCount > MAX_REPINS) {
+      if (styleGuard) styleGuard.disconnect();
+      styleGuard = null;
+      console.warn('Nocturne: the site keeps rewriting the video, leaving it');
+      return;
+    }
+
+    pinStyle(video, VIDEO_STYLE);
+    if (overlay) overlay.repin();
+    pinnedStyle = readStyle(video);
+  };
+
+  const relayout = () => {
+    relayoutFrame = 0;
+    pinVideo();
+    if (overlay) overlay.relayout();
+  };
+
+  const scheduleRelayout = () => {
+    if (relayoutFrame !== 0) return;
+    relayoutFrame = requestAnimationFrame(relayout);
+  };
+
   const mount = () => {
     stage.dataset.nocturnePlayer = '';
     pinStyle(stage, STAGE_STYLE);
 
     video.replaceWith(anchor);
     video.removeAttribute('controls');
-    pinStyle(video, VIDEO_STYLE);
+    pinVideo();
+
+    // The site is free to keep laying its player out; it just does not get to
+    // move the picture we are showing.
+    styleGuard = new MutationObserver(pinVideo);
+    styleGuard.observe(video, {
+      attributes: true,
+      attributeFilter: ['style', 'width', 'height'],
+    });
 
     stage.append(video, ui.host);
     ui.shadow.append(layers.warm, layers.dim);
@@ -131,6 +251,8 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
   };
 
   const unmount = () => {
+    if (styleGuard) styleGuard.disconnect();
+    styleGuard = null;
     if (overlay) overlay.destroy();
     overlay = null;
     stage.remove();
@@ -143,8 +265,10 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     if (!isActive) return;
     isActive = false;
 
-    if (stallTimer !== null) clearTimeout(stallTimer);
-    stallTimer = null;
+    for (const timer of timers) clearTimeout(timer);
+    timers.clear();
+    if (relayoutFrame !== 0) cancelAnimationFrame(relayoutFrame);
+    relayoutFrame = 0;
 
     for (const undo of teardown) undo();
     teardown.length = 0;
@@ -160,18 +284,101 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     onExit();
   };
 
+  // Gecko keeps a media element playing across a re-parent, but a site shim
+  // that reloads it leaves us holding an empty player. A quality switch empties
+  // the element too, so the verdict waits until the dust settles.
+  const watchForTeardown = () => {
+    let pending = null;
+
+    // Any sign of life cancels the verdict. An element that is loading again is
+    // an element the site is still using, whatever its readyState says at the
+    // moment we happen to look.
+    const revive = () => {
+      if (pending === null) return;
+      clearTimeout(pending);
+      timers.delete(pending);
+      pending = null;
+    };
+
+    const LIFE_SIGNS = [
+      'loadstart',
+      'loadedmetadata',
+      'progress',
+      'seeked',
+      'canplay',
+      'playing',
+    ];
+
+    for (const name of LIFE_SIGNS) {
+      listen(video, name, revive);
+    }
+
+    listen(video, 'emptied', () => {
+      revive();
+      pending = later(() => {
+        pending = null;
+        const hasSource = video.currentSrc !== '' || video.srcObject !== null;
+        // networkState is the honest one: NETWORK_EMPTY means the element has
+        // no source at all, where a seek in progress reads as loading.
+        const isEmpty = video.networkState === NETWORK_EMPTY;
+        if (hasSource || video.readyState > 0 || !isEmpty) return;
+        console.warn('Nocturne: the video was torn down, backing out');
+        exit();
+      }, EMPTIED_GRACE_MS);
+    });
+  };
+
+  const applyLandscape = async () => {
+    if (!settings.isAutoLandscapeOn) return;
+    const isLocked = await lockLandscape();
+    if (isLocked) isOrientationLocked = true;
+  };
+
+  const restoreFullscreen = () => {
+    if (!isFullscreenWanted) return;
+    if (document.fullscreenElement === stage) return;
+    // Gecko may refuse this without a fresh gesture. The stage covers the
+    // viewport on its own, so the player stays usable either way.
+    requestFullscreen(stage).then((isOn) => {
+      if (isOn) applyLandscape();
+      scheduleRelayout();
+    });
+  };
+
+  const watchForReturn = () => {
+    listen(document, 'fullscreenchange', () => {
+      if (document.fullscreenElement === stage) return;
+      later(() => {
+        if (!isActive) return;
+        if (isBackgrounded()) return;
+        exit();
+      }, RECOVER_DELAY_MS);
+    });
+
+    // Coming back from a floating window or from another app: re-take the
+    // screen and re-fit the picture to whatever shape it is now.
+    listen(document, 'visibilitychange', () => {
+      if (document.hidden) return;
+      later(() => {
+        if (!isActive) return;
+        restoreFullscreen();
+        scheduleRelayout();
+      }, RECOVER_DELAY_MS);
+    });
+
+    listen(window, 'resize', scheduleRelayout);
+    listen(window, 'orientationchange', scheduleRelayout);
+    listen(video, 'loadedmetadata', scheduleRelayout);
+    listen(video, 'resize', scheduleRelayout);
+  };
+
   const enter = async () => {
     if (isActive) return false;
     isActive = true;
 
-    // Gecko keeps a media element playing across a re-parent, but if some site
-    // shim reloads it we back out rather than leave the page in a broken state.
-    listen(video, 'emptied', () => {
-      console.warn('Nocturne: the video reloaded when moved, backing out');
-      exit();
-    });
-
+    watchForTeardown();
     mount();
+
     overlay = createOverlay({
       video,
       stage,
@@ -180,20 +387,30 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
       onExit: exit,
       settings,
       onPersist,
-      wasPlaying: state.wasPlaying,
+      playerHost,
+      onImmersiveChange: (isOn) => {
+        isFullscreenWanted = isOn;
+        if (isOn) {
+          restoreFullscreen();
+        } else if (document.fullscreenElement === stage) {
+          document.exitFullscreen().catch(() => {});
+        }
+      },
     });
 
-    stallTimer = setTimeout(() => {
-      stallTimer = null;
+    later(() => {
       if (state.wasPlaying && video.paused) video.play().catch(() => {});
     }, STALL_GRACE_MS);
 
-    listen(document, 'fullscreenchange', () => {
-      if (document.fullscreenElement !== stage) exit();
-    });
+    watchForReturn();
 
-    await requestFullscreen(stage);
-    isOrientationLocked = await lockLandscape();
+    // The button that opens the player is drawn as a fullscreen icon, so it
+    // takes the screen — every time, not only when a switch left over from a
+    // previous session happens to agree. The switch in the sheet still drops
+    // back to the overlay, for the rest of this session.
+    const isOn = await requestFullscreen(stage);
+    if (isOn) await applyLandscape();
+    scheduleRelayout();
     return true;
   };
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Nocturne Player",
-  "version": "0.2.0",
-  "description": "A touch-first video player for ordinary streaming sites: thick seek bar, gesture controls, night light and colour tuning.",
+  "version": "0.3.0",
+  "description": "A touch-first video player for streaming sites and YouTube: thick seek bar, gesture controls, quality and subtitle picker, night light and colour tuning.",
   "author": "Vlad Pohorilets",
   "homepage_url": "https://github.com/kvachikk/nocturne-player",
   "browser_specific_settings": {

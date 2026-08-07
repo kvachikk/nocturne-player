@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'nocturne';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export const DEFAULTS = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
@@ -10,7 +10,6 @@ export const DEFAULTS = Object.freeze({
   doubleTapSeconds: 10,
   holdSpeed: 2,
   isAutoLandscapeOn: true,
-  isFullscreenTakeoverOn: true,
   areEffectsReduced: false,
   subtitleScale: 1,
   areSubtitlesNative: false,
@@ -19,13 +18,51 @@ export const DEFAULTS = Object.freeze({
 
 const KEYS = Object.keys(DEFAULTS);
 
+// The picture must start exactly as the site encoded it, so a stored value that
+// is not a number in range is not trusted: it falls back to the neutral one
+// rather than tinting somebody's first film for reasons they cannot see.
+const RANGES = {
+  warmth: { min: 0, max: 0.45 },
+  brightness: { min: 0.4, max: 2 },
+  contrast: { min: 0.5, max: 1.5 },
+  saturate: { min: 0, max: 2 },
+  subtitleScale: { min: 0.5, max: 2 },
+  doubleTapSeconds: { min: 5, max: 60 },
+  holdSpeed: { min: 1.5, max: 4 },
+};
+
+const inRange = (key, value) => {
+  const range = RANGES[key];
+  if (range === undefined) return value;
+  const isNumber = typeof value === 'number' && Number.isFinite(value);
+  if (!isNumber) return DEFAULTS[key];
+  if (value < range.min || value > range.max) return DEFAULTS[key];
+  return value;
+};
+
+const COLOUR_KEYS = ['warmth', 'brightness', 'contrast', 'saturate'];
+
+// Schema 1 kept whatever colour the panel was last left on, including values
+// somebody had only been trying out. They came back on the next film — on what
+// looked like a clean profile — as a picture that was already tinted, or in one
+// case with the colour drained out of it entirely. The upgrade drops them once;
+// after that they are the viewer's again.
+const migrate = (stored) => {
+  if (stored === null || typeof stored !== 'object') return stored;
+  if (stored.schemaVersion === SCHEMA_VERSION) return stored;
+  const migrated = { ...stored };
+  for (const key of COLOUR_KEYS) delete migrated[key];
+  return migrated;
+};
+
 // Rebuilt key by key so every settings object shares one hidden class, and so
 // unknown keys from a future version can never leak into the running state.
-const normalize = (stored) => {
+export const normalize = (raw) => {
+  const stored = migrate(raw);
   const settings = {};
   for (const key of KEYS) {
     const value = stored?.[key];
-    settings[key] = value === undefined ? DEFAULTS[key] : value;
+    settings[key] = value === undefined ? DEFAULTS[key] : inRange(key, value);
   }
   settings.schemaVersion = SCHEMA_VERSION;
   settings.disabledHosts = Array.isArray(settings.disabledHosts)

@@ -1,8 +1,10 @@
+import { readSiteChapters } from './video/chapters.js';
 import { createColorPanel } from './controls/colorpanel.js';
 import { createMenu } from './controls/menu.js';
 import { createQuality } from './video/quality.js';
 import { createRecognizer } from './gestures/recognizer.js';
 import { createSeekBar } from './controls/seekbar.js';
+import { createSeeker } from './video/seek.js';
 import { createTrackManager } from './video/tracks.js';
 import { createVisuals } from './video/visuals.js';
 import { el } from './shell.js';
@@ -12,14 +14,25 @@ const CHROME_IDLE_MS = 3000;
 const SCRUB_STEP_SECONDS = 0.2;
 const SCRUB_TICK_MS = 100;
 const TOAST_MS = 900;
+const HINT_MS = 2200;
 const SKIP_SECONDS = 10;
 const FILL_RETRY_MS = 400;
+const FRAME_LIFE_MS = 2000;
+const CHAPTER_TRIES_MS = [1200, 4000, 10000];
+
+// The Android launcher, asked for by intent. Nothing is loaded from anywhere:
+// the URL names an activity on the phone, and the browser either hands it to
+// the system or ignores it.
+const HOME_INTENT =
+  'intent://#Intent;action=android.intent.action.MAIN;' +
+  'category=android.intent.category.HOME;end';
+const FILL_ATTEMPTS = 25;
 
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
   colour:
     'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
-  pip: 'M3 5h18v14H3zM12 12h7v5h-7z',
+  pip: 'M4 5h16v14H4zM12.5 12.5h6v5h-6z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
   pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
@@ -72,9 +85,11 @@ export const createOverlay = ({
   onExit,
   settings,
   onPersist,
-  wasPlaying,
+  playerHost,
+  onImmersiveChange,
 }) => {
   const surface = el('div', { class: 'layer surface' });
+  const scrim = el('div', { class: 'layer scrim' });
   const toast = el('div', { class: 'toast' });
   const topbar = el('div', { class: 'topbar' });
   const chrome = el('div', { class: 'chrome' });
@@ -94,8 +109,8 @@ export const createOverlay = ({
   // were watching, not to the next one.
   video.playbackRate = 1;
 
-  const visuals = createVisuals(video, stage, wasPlaying);
-  const quality = createQuality(video);
+  const visuals = createVisuals(video, stage);
+  const quality = createQuality(video, playerHost);
   const tracks = createTrackManager(
     video,
     (text) => {
@@ -103,9 +118,11 @@ export const createOverlay = ({
       cueBox.classList.toggle('is-visible', text !== '');
     },
     (id) => menuRef.setSubtitle(id),
+    playerHost,
   );
 
-  const seekBar = createSeekBar(video);
+  const seek = createSeeker(video, playerHost);
+  const seekBar = createSeekBar(video, seek);
 
   let chromeTimer = null;
   let scrubTimer = null;
@@ -113,14 +130,14 @@ export const createOverlay = ({
   let pinchBase = 1;
   let wasPlayingBeforeScrub = false;
 
-  const showToast = (text) => {
+  const showToast = (text, duration = TOAST_MS) => {
     toast.textContent = text;
     toast.classList.add('is-visible');
     if (toastTimer !== null) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       toastTimer = null;
       toast.classList.remove('is-visible');
-    }, TOAST_MS);
+    }, duration);
   };
 
   const applyWarmth = (value) => {
@@ -143,6 +160,11 @@ export const createOverlay = ({
     },
     onPickFile: () => filePicker.click(),
     onRate: () => {},
+    onNotice: (text) => showToast(text, HINT_MS),
+    // Deliberately not persisted, the way playback speed is not: it belongs to
+    // the film being watched now, and a viewer who dropped out of fullscreen
+    // once should still get fullscreen from a button that says fullscreen.
+    onImmersive: onImmersiveChange,
   });
 
   menuRef.setSubtitle = menu.setSubtitle;
@@ -165,7 +187,6 @@ export const createOverlay = ({
   const closePanels = () => {
     colorPanel.close();
     menu.close();
-    visuals.suppressFade(false);
     buttons.colour?.setAttribute('aria-pressed', 'false');
     buttons.menu?.setAttribute('aria-pressed', 'false');
     setChromeVisible(true);
@@ -178,11 +199,7 @@ export const createOverlay = ({
   };
 
   const skip = (seconds) => {
-    const limit = Number.isFinite(video.duration)
-      ? video.duration
-      : video.currentTime;
-    const target = video.currentTime + seconds;
-    video.currentTime = Math.min(limit, Math.max(0, target));
+    seek(video.currentTime + seconds);
     showToast(`${seconds > 0 ? '+' : ''}${seconds}s`);
   };
 
@@ -190,7 +207,6 @@ export const createOverlay = ({
     if (scrubTimer === null) return;
     clearInterval(scrubTimer);
     scrubTimer = null;
-    visuals.suppressFade(false);
     if (wasPlayingBeforeScrub) video.play().catch(() => {});
   };
 
@@ -201,26 +217,20 @@ export const createOverlay = ({
     stopScrub();
     wasPlayingBeforeScrub = !video.paused;
     video.pause();
-    visuals.suppressFade(true);
     scrubTimer = setInterval(() => {
-      const limit = Number.isFinite(video.duration)
-        ? video.duration
-        : video.currentTime;
-      const target = video.currentTime + direction * SCRUB_STEP_SECONDS;
-      video.currentTime = Math.min(limit, Math.max(0, target));
+      seek(video.currentTime + direction * SCRUB_STEP_SECONDS);
     }, SCRUB_TICK_MS);
   };
 
   const dragTargets = { [ZONE.SEEK]: seekBar };
 
   const recognizer = createRecognizer(surface, {
-    tap: ({ zone }) => {
+    tap: () => {
       if (isPanelOpen()) {
         closePanels();
         return;
       }
-      if (zone === ZONE.PAUSE) togglePlay();
-      else setChromeVisible(chrome.hasAttribute('hidden'));
+      setChromeVisible(chrome.hasAttribute('hidden'));
     },
     multiTap: ({ zone, count }) => {
       if (isPanelOpen()) {
@@ -283,43 +293,94 @@ export const createOverlay = ({
     menu.close();
     buttons.menu.setAttribute('aria-pressed', 'false');
     colorPanel.toggle();
-    const isOpen = colorPanel.isOpen();
-    buttons.colour.setAttribute('aria-pressed', String(isOpen));
-    visuals.suppressFade(isOpen);
+    buttons.colour.setAttribute('aria-pressed', String(colorPanel.isOpen()));
     setChromeVisible(true);
   });
 
   buttons.menu = buildButton('Settings', ICON.menu, () => {
     colorPanel.close();
-    visuals.suppressFade(false);
     buttons.colour.setAttribute('aria-pressed', 'false');
     menu.toggle();
     buttons.menu.setAttribute('aria-pressed', String(menu.isOpen()));
     setChromeVisible(true);
   });
 
+  // Gecko has no Web API for the floating window on Android. What Android has
+  // is a rule: a video playing in a fullscreen app keeps playing, floating,
+  // once that app goes to the background. So the button does the one thing
+  // that reliably triggers it — it goes to the home screen.
+  //
+  // The launcher is asked for through an intent URL in a throwaway frame. In a
+  // frame, a browser that does not handle the scheme fails quietly instead of
+  // navigating the film away, which is what would happen from the top window.
+  const leaveForHomeScreen = () => {
+    const attributes = { class: 'hidden-frame', 'aria-hidden': 'true' };
+    const frame = el('iframe', attributes);
+    document.body.append(frame);
+    try {
+      frame.src = HOME_INTENT;
+    } catch (error) {
+      console.warn('Nocturne: could not reach the home screen', error);
+    }
+    setTimeout(() => frame.remove(), FRAME_LIFE_MS);
+  };
+
+  const enterPictureInPicture = () => {
+    setChromeVisible(true);
+    if (video.paused) video.play().catch(() => {});
+
+    if (typeof video.requestPictureInPicture === 'function') {
+      video.requestPictureInPicture().catch(leaveForHomeScreen);
+      return;
+    }
+
+    leaveForHomeScreen();
+  };
+
   topbar.append(
     buildButton('Exit player', ICON.exit, () => onExit()),
     el('div', { class: 'spacer' }),
+    buildButton('Picture in picture', ICON.pip, enterPictureInPicture),
     buttons.colour,
     buttons.menu,
   );
 
-  // Firefox for Android has no Picture-in-Picture API yet, so the button
-  // appears on its own once Gecko ships one.
-  if (document.pictureInPictureEnabled) {
-    const pip = buildButton('Picture in picture', ICON.pip, () => {
-      video.requestPictureInPicture().catch(() => {});
-    });
-    topbar.insertBefore(pip, buttons.colour);
-  }
+  chrome.append(
+    scrim,
+    topbar,
+    centreRow,
+    colorPanel.root,
+    menu.root,
+    seekBar.root,
+  );
 
-  chrome.append(topbar, centreRow, colorPanel.root, menu.root, seekBar.root);
+  // Reading a file the user picked themselves, straight into the cue list.
+  // Nothing leaves the device and nothing is parsed as markup.
+  const loadSubtitleFile = async () => {
+    const file = filePicker.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    filePicker.value = '';
+    const id = tracks.addCues(file.name.replace(/\.(srt|vtt)$/i, ''), text);
+    if (id === null) {
+      showToast('No subtitles in that file', HINT_MS);
+      return;
+    }
+    tracks.select(id);
+    menu.refresh();
+    showToast('Subtitles loaded', HINT_MS);
+  };
+
+  filePicker.addEventListener('change', () => {
+    loadSubtitleFile().catch((error) => {
+      console.error('Nocturne: could not read the subtitle file', error);
+      showToast('Could not read that file', HINT_MS);
+    });
+  });
 
   // Only the path data changes, so swapping play for pause cannot make the
   // button flicker or shift.
   const handlePlaybackChange = () => {
-    visuals.setPaused(video.paused);
     playPath.setAttribute('d', video.paused ? ICON.play : ICON.pause);
     setChromeVisible(true);
   };
@@ -339,11 +400,26 @@ export const createOverlay = ({
     cueBox.style.setProperty('--cue-scale', String(settings.subtitleScale));
   };
 
-  // Black bars cropped from the start; metadata may not have arrived yet.
+  // Black bars cropped from the start; metadata may not have arrived yet. The
+  // retry gives up rather than ticking for as long as the film lasts on a
+  // stream that never reports its dimensions.
+  let fillAttempts = 0;
   const fillWhenReady = () => {
     if (visuals.fillScreen()) return;
+    fillAttempts += 1;
+    if (fillAttempts >= FILL_ATTEMPTS) return;
     setTimeout(fillWhenReady, FILL_RETRY_MS);
   };
+
+  // Walking the site's page data is not free, so it happens after the picture
+  // is up rather than in the way of it — and more than once, because a page
+  // that was navigated to fills its data in some time after the video starts.
+  const chapterTimers = CHAPTER_TRIES_MS.map((delay) =>
+    setTimeout(() => {
+      const chapters = readSiteChapters(playerHost);
+      if (chapters.length > 0) seekBar.setChapters(chapters);
+    }, delay),
+  );
 
   restoreSettings();
   fillWhenReady();
@@ -351,6 +427,8 @@ export const createOverlay = ({
   setChromeVisible(true);
 
   return {
+    relayout: () => visuals.relayout(),
+    repin: () => visuals.repin(),
     destroy: () => {
       recognizer.destroy();
       seekBar.destroy();
@@ -358,6 +436,7 @@ export const createOverlay = ({
       stopScrub();
       if (chromeTimer !== null) clearTimeout(chromeTimer);
       if (toastTimer !== null) clearTimeout(toastTimer);
+      for (const timer of chapterTimers) clearTimeout(timer);
       video.removeEventListener('pause', handlePlaybackChange);
       video.removeEventListener('play', handlePlaybackChange);
     },

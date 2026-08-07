@@ -60,9 +60,10 @@ export const createRecognizer = (surface, handlers) => {
   };
 
   const registerTap = (zone) => {
-    // A tap in the pause box acts at once; the side boxes have to wait out the
-    // window because a second tap there means "seek", not "show the controls".
-    if (zone === ZONE.PAUSE) {
+    // A tap on bare picture acts at once — it only brings the controls up or
+    // puts them away. The side boxes have to wait the window out, because a
+    // second tap there means "seek", not "show the controls".
+    if (zone === ZONE.DEAD) {
       emit('tap', { zone });
       return;
     }
