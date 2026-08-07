@@ -62,10 +62,16 @@ for you. Works with `<source>` lists, YouTube, hls.js, dash.js and Shaka; where
 a player exposes nothing, the sheet says what is playing instead of offering a
 choice that would do nothing.
 
-**Picture in picture** — the button at the top right hands the film to the
-system's floating window where the platform allows it, and the player survives
-being sent to the background so Android's own hand-off works when you swipe
-away.
+**Picture in picture** — the last button in the top row asks Android for the
+home screen and leaves the film playing behind it, which is the hand-off the
+system already knows how to float. The player survives being backgrounded, so
+coming back finds it where you left it.
+
+**Chapters** — where a site publishes sections, the seek bar is cut at each one
+and names the section your finger is over.
+
+**On the site's own player** — a single fullscreen button sits on an inline
+video. It fades out when it is left alone and comes back on any tap.
 
 ## Privacy
 
@@ -99,10 +105,11 @@ These are platform limits, not oversights:
 
 - **There is no Web API for Picture-in-Picture on Android.** Gecko does not
   ship `requestPictureInPicture()` there. What Android does offer is its own
-  hand-off: leave the app while a video is playing and the system floats it. The
-  button uses the standard API where it exists and otherwise prepares the video
-  and says what to do, and the session now survives being backgrounded so the
-  system hand-off is not torn down halfway through.
+  hand-off: leave the app while a video is playing and the system floats it. So
+  the button does exactly what a viewer would do by hand — it asks Android for
+  the home screen — and the session survives being backgrounded so the hand-off
+  is not torn down halfway through. Whether the window actually floats is the
+  system's decision, not the extension's.
 - **Quality depends on what the site's player exposes.** A player that keeps its
   engine in a closure cannot be reached from an extension. The common ones —
   `<source>` lists, YouTube, hls.js, dash.js, Shaka — are covered; anything else

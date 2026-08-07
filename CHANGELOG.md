@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
-## [0.3.0][] - 2026-08-06
+## [0.3.0][] - 2026-08-07
 
 Everything in this release comes from watching real films on a real phone with
 0.2.0 installed.
@@ -23,9 +23,18 @@ Everything in this release comes from watching real films on a real phone with
   through its player API and the text it renders is mirrored into the player's
   cue layer, which is why subtitles were missing there before. The same mirror
   covers Shaka, video.js, JW Player, Plyr and Playerjs.
-- **Picture-in-picture button**, at the top right. Gecko ships no Web API for it
-  on Android, so it uses the standard call where that exists and otherwise
-  prepares the video and says what to do.
+- **Picture-in-picture button**, last in the top row after colour and settings,
+  where a thumb reaches it. Gecko ships no Web API for it on Android, so the
+  button does what a viewer does by hand: it asks Android for the home screen
+  and leaves Firefox playing behind it, which is the hand-off Android already
+  knows how to float.
+- **Chapters on the seek bar.** Where a site publishes sections — YouTube does —
+  the bar is cut at each one and the title of the section under the finger is
+  named above it.
+- **A fullscreen button on the inline video.** One button, drawn as the
+  fullscreen arrows, sitting on the site's own small player. It fades out after
+  a few seconds untouched and comes back on any tap, so it is there when it is
+  wanted and gone when it is not.
 - **Fullscreen switch** in the settings sheet. Off runs the player as an overlay
   instead of taking the screen, which leaves Android's ordinary single swipe
   home working.
@@ -42,6 +51,8 @@ Everything in this release comes from watching real films on a real phone with
   middle.
 - **The badge sits halfway up the right edge** of an inline video rather than in
   the bottom corner, where it covered the site's own controls.
+- **The scrim is heavier** where the controls sit, so they stay readable when
+  they come up over a bright, playing picture rather than over a paused one.
 - Motion follows one easing curve throughout, with scrims and shadows under the
   controls so they stay legible over a bright picture.
 - The launcher no longer asks Gecko to hide the navigation UI, which is what put
@@ -67,6 +78,17 @@ Everything in this release comes from watching real films on a real phone with
   looks like, and it is now told apart from the viewer leaving the player.
 - A quality switch that empties the media element no longer backs the player
   out; the check waits to see whether the element really was torn down.
+- **YouTube on the phone offers a quality ladder again.** Its player answers
+  `getAvailableQualityLevels()` with an empty list there, so the rungs are read
+  off the heights of the formats the video itself carries, and the row says
+  which of the two ways in produced them.
+- The site's player object is captured before the video is moved, so the
+  quality, caption and chapter readers still have something to ask once the
+  element no longer sits inside it.
+- The style guard no longer answers its own writes. It compared what it had
+  asked for against what the browser had stored, never matched, and rewrote
+  twenty properties on every mutation it caused — which is what made the player
+  crawl and fullscreen take seconds to arrive.
 
 ## [0.2.0][] - 2026-08-02
 
