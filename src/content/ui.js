@@ -4,6 +4,7 @@ import { createMenu } from './controls/menu.js';
 import { createQuality } from './video/quality.js';
 import { createRecognizer } from './gestures/recognizer.js';
 import { createSeekBar } from './controls/seekbar.js';
+import { createSeeker } from './video/seek.js';
 import { createTrackManager } from './video/tracks.js';
 import { createVisuals } from './video/visuals.js';
 import { el } from './shell.js';
@@ -18,7 +19,6 @@ const SKIP_SECONDS = 10;
 const FILL_RETRY_MS = 400;
 const FRAME_LIFE_MS = 2000;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
-const HANDOFF_GRACE_MS = 900;
 
 // The Android launcher, asked for by intent. Nothing is loaded from anywhere:
 // the URL names an activity on the phone, and the browser either hands it to
@@ -121,7 +121,8 @@ export const createOverlay = ({
     playerHost,
   );
 
-  const seekBar = createSeekBar(video);
+  const seek = createSeeker(video, playerHost);
+  const seekBar = createSeekBar(video, seek);
 
   let chromeTimer = null;
   let scrubTimer = null;
@@ -153,7 +154,6 @@ export const createOverlay = ({
     video,
     tracks,
     quality,
-    settings,
     onStyle: ({ scale }) => {
       cueBox.style.setProperty('--cue-scale', String(scale));
       onPersist({ subtitleScale: scale });
@@ -161,10 +161,10 @@ export const createOverlay = ({
     onPickFile: () => filePicker.click(),
     onRate: () => {},
     onNotice: (text) => showToast(text, HINT_MS),
-    onImmersive: (isOn) => {
-      onImmersiveChange(isOn);
-      onPersist({ isFullscreenTakeoverOn: isOn });
-    },
+    // Deliberately not persisted, the way playback speed is not: it belongs to
+    // the film being watched now, and a viewer who dropped out of fullscreen
+    // once should still get fullscreen from a button that says fullscreen.
+    onImmersive: onImmersiveChange,
   });
 
   menuRef.setSubtitle = menu.setSubtitle;
@@ -199,11 +199,7 @@ export const createOverlay = ({
   };
 
   const skip = (seconds) => {
-    const limit = Number.isFinite(video.duration)
-      ? video.duration
-      : video.currentTime;
-    const target = video.currentTime + seconds;
-    video.currentTime = Math.min(limit, Math.max(0, target));
+    seek(video.currentTime + seconds);
     showToast(`${seconds > 0 ? '+' : ''}${seconds}s`);
   };
 
@@ -222,11 +218,7 @@ export const createOverlay = ({
     wasPlayingBeforeScrub = !video.paused;
     video.pause();
     scrubTimer = setInterval(() => {
-      const limit = Number.isFinite(video.duration)
-        ? video.duration
-        : video.currentTime;
-      const target = video.currentTime + direction * SCRUB_STEP_SECONDS;
-      video.currentTime = Math.min(limit, Math.max(0, target));
+      seek(video.currentTime + direction * SCRUB_STEP_SECONDS);
     }, SCRUB_TICK_MS);
   };
 
@@ -343,11 +335,6 @@ export const createOverlay = ({
     }
 
     leaveForHomeScreen();
-    // If nothing took us away, say what does.
-    setTimeout(() => {
-      if (document.hidden) return;
-      showToast('Swipe up to keep it floating', HINT_MS);
-    }, HANDOFF_GRACE_MS);
   };
 
   topbar.append(
@@ -441,6 +428,7 @@ export const createOverlay = ({
 
   return {
     relayout: () => visuals.relayout(),
+    repin: () => visuals.repin(),
     destroy: () => {
       recognizer.destroy();
       seekBar.destroy();

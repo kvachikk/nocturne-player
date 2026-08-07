@@ -113,6 +113,11 @@ export const createVisuals = (video, stage) => {
 
   return {
     relayout,
+    // The site rewrites the video's inline style and the guard puts the
+    // position and the size back — but the crop lives in `transform`, which
+    // the guard knows nothing about, so it has to be written again here or the
+    // picture drops back into its letterbox the moment the site touches it.
+    repin: apply,
     // Crops the letterbox away, which is what most people want on a phone.
     fillScreen: () => {
       if (video.videoWidth === 0) return false;

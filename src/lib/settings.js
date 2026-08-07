@@ -10,7 +10,6 @@ export const DEFAULTS = Object.freeze({
   doubleTapSeconds: 10,
   holdSpeed: 2,
   isAutoLandscapeOn: true,
-  isFullscreenTakeoverOn: true,
   areEffectsReduced: false,
   subtitleScale: 1,
   areSubtitlesNative: false,

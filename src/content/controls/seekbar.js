@@ -20,7 +20,7 @@ const precisionFor = (distancePx) => {
   return PRECISION_STEPS[PRECISION_STEPS.length - 1];
 };
 
-export const createSeekBar = (video) => {
+export const createSeekBar = (video, seek) => {
   const elapsed = el('span', { class: 'time', text: '0:00' });
   const remaining = el('span', { class: 'time', text: '--:--' });
   const fill = el('div', { class: 'seek-fill' });
@@ -115,14 +115,14 @@ export const createSeekBar = (video) => {
     const now = performance.now();
     if (now - lastPreviewAt < PREVIEW_INTERVAL_MS) return;
     lastPreviewAt = now;
-    video.currentTime = scrubTime;
+    seek(scrubTime, false);
   };
 
   const end = () => {
     if (!isScrubbing) return;
     isScrubbing = false;
     root.classList.remove('is-scrubbing');
-    if (duration() > 0) video.currentTime = scrubTime;
+    if (duration() > 0) seek(scrubTime);
     paint(scrubTime);
   };
 

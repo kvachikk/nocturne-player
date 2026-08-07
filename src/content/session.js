@@ -12,7 +12,13 @@ const PLAYER_API_MARKERS = [
 ];
 
 const STALL_GRACE_MS = 400;
-const EMPTIED_GRACE_MS = 600;
+// Long enough for a site to finish re-attaching its stream. A scrub past the
+// buffer makes YouTube tear its stream down and build it again, which on a slow
+// connection takes seconds — and the player used to back out from under the
+// finger that was scrubbing. A few seconds of black is a far smaller price than
+// being thrown out of the film.
+const EMPTIED_GRACE_MS = 6000;
+const NETWORK_EMPTY = 0;
 const RECOVER_DELAY_MS = 250;
 const MAX_REPINS = 240;
 
@@ -60,7 +66,13 @@ const VIDEO_STYLE = {
   'transform-origin': 'center center',
 };
 
-const VIDEO_STYLE_KEYS = Object.keys(VIDEO_STYLE);
+// The crop and the colour are written by the visuals rather than pinned from
+// the table above, but they are watched all the same: a site that rewrites the
+// video's style wipes them, and the guard has to notice that it did.
+const VIDEO_STYLE_KEYS = Object.keys(VIDEO_STYLE).concat([
+  'transform',
+  'filter',
+]);
 
 const captureVideoState = (video) => ({
   cssText: video.style.cssText,
@@ -160,7 +172,7 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
 
   let isActive = false;
   let isOrientationLocked = false;
-  let isFullscreenWanted = settings.isFullscreenTakeoverOn;
+  let isFullscreenWanted = true;
   let styleGuard = null;
   let pinnedStyle = null;
   let repinCount = 0;
@@ -202,6 +214,7 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     }
 
     pinStyle(video, VIDEO_STYLE);
+    if (overlay) overlay.repin();
     pinnedStyle = readStyle(video);
   };
 
@@ -275,10 +288,40 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
   // that reloads it leaves us holding an empty player. A quality switch empties
   // the element too, so the verdict waits until the dust settles.
   const watchForTeardown = () => {
+    let pending = null;
+
+    // Any sign of life cancels the verdict. An element that is loading again is
+    // an element the site is still using, whatever its readyState says at the
+    // moment we happen to look.
+    const revive = () => {
+      if (pending === null) return;
+      clearTimeout(pending);
+      timers.delete(pending);
+      pending = null;
+    };
+
+    const LIFE_SIGNS = [
+      'loadstart',
+      'loadedmetadata',
+      'progress',
+      'seeked',
+      'canplay',
+      'playing',
+    ];
+
+    for (const name of LIFE_SIGNS) {
+      listen(video, name, revive);
+    }
+
     listen(video, 'emptied', () => {
-      later(() => {
+      revive();
+      pending = later(() => {
+        pending = null;
         const hasSource = video.currentSrc !== '' || video.srcObject !== null;
-        if (hasSource || video.readyState > 0) return;
+        // networkState is the honest one: NETWORK_EMPTY means the element has
+        // no source at all, where a seek in progress reads as loading.
+        const isEmpty = video.networkState === NETWORK_EMPTY;
+        if (hasSource || video.readyState > 0 || !isEmpty) return;
         console.warn('Nocturne: the video was torn down, backing out');
         exit();
       }, EMPTIED_GRACE_MS);
@@ -361,10 +404,12 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
 
     watchForReturn();
 
-    if (isFullscreenWanted) {
-      const isOn = await requestFullscreen(stage);
-      if (isOn) await applyLandscape();
-    }
+    // The button that opens the player is drawn as a fullscreen icon, so it
+    // takes the screen — every time, not only when a switch left over from a
+    // previous session happens to agree. The switch in the sheet still drops
+    // back to the overlay, for the rest of this session.
+    const isOn = await requestFullscreen(stage);
+    if (isOn) await applyLandscape();
     scheduleRelayout();
     return true;
   };
