@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.4.0][] - 2026-08-08
+
+### Added
+
+- **Quality on ordinary film sites.** Sites that embed Playerjs — a large part
+  of what people actually watch on a phone — now offer their ladder in the
+  sheet like any other player. Playerjs keeps its streaming engine inside a
+  closure, but it answers about itself: `api('qualities')` lists the rungs the
+  site built, in the site's own words, and `api('quality', label)` is the call
+  its own menu makes. Both are reads and calls on an object the page already
+  published; no code is injected and nothing is evaluated from a string. The
+  chips come out auto first, then best to worst, whatever order the site listed
+  them in.
+
+### Changed
+
+- The rung the viewer picked is remembered above the adapters rather than
+  inside them. The ladder is looked up again every time the sheet opens, which
+  builds a fresh adapter, and a player that has been given a rung goes back to
+  reporting whatever its own auto has drifted to — so the chip used to fall
+  back to Auto a few seconds after a choice. It now stays on the choice until
+  the rung stops being offered.
+
+### Notes
+
+- 0.3.0 said a player that keeps its engine in a closure could not be reached
+  from an extension at all. That was too strong: Playerjs cannot be reached
+  *through its engine*, but it answers questions about itself, and that is
+  enough. Players that expose neither still report the resolution being played
+  rather than offering a choice that would do nothing.
+
 ## [0.3.0][] - 2026-08-07
 
 Everything in this release comes from watching real films on a real phone with
@@ -165,6 +196,7 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.4.0
 [0.3.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.3.0
 [0.2.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.2.0
