@@ -2,6 +2,7 @@ import {
   call,
   findGlobalMatch,
   isFunction,
+  pageWindow,
   read,
   toArray,
   toPage,
@@ -121,11 +122,6 @@ const createYouTubeAdapter = (video, host) => {
   const player = findYouTubePlayer(host);
   if (player === null) return null;
 
-  // YouTube reports the quality it is actually playing, which on auto keeps
-  // moving. The chip should show what the user asked for, so the choice is
-  // remembered here and the played value is only the opening guess.
-  let chosen = null;
-
   const advertised = () =>
     toArray(call(player, 'getAvailableQualityLevels')).filter(
       (level) => typeof level === 'string' && level !== AUTO_ID,
@@ -170,14 +166,12 @@ const createYouTubeAdapter = (video, host) => {
         label: YOUTUBE_LABELS[level] ?? level,
       })),
     current: () => {
-      if (chosen !== null) return chosen;
       const quality = call(player, 'getPlaybackQuality');
       return typeof quality === 'string' ? quality : null;
     },
     // Both calls together: the range is what pins the ladder for the rest of
     // the video, while setPlaybackQuality is what older players listen to.
     select: (id) => {
-      chosen = id;
       if (id === AUTO_ID) {
         call(
           player,
@@ -355,6 +349,91 @@ const buildShakaAdapter = (player) => {
   };
 };
 
+// --- Playerjs ----------------------------------------------------------------
+
+// Playerjs hands the page a single method — api() — and keeps the streaming
+// engine it drives inside a closure, so there is no ladder object to find the
+// way there is with hls.js. What it will answer is its own question:
+// api('qualities') lists the rungs the site built, in the site's own words,
+// and api('quality', label) is the same call its own menu makes. Those two are
+// the whole adapter, and they are what makes quality work on the run of film
+// sites that ship this player.
+const AUTO_WORDS = /^(auto|авто|авто\u0301|autom)/i;
+
+const heightOf = (label) => {
+  const match = /(\d{3,4})/.exec(label);
+  return match === null ? 0 : Number(match[1]);
+};
+
+// Auto first, then the heights from best to worst — the order the chips want,
+// whatever order the site happened to list them in.
+const orderLabels = (labels) => {
+  const auto = labels.filter((label) => AUTO_WORDS.test(label));
+  const rest = labels
+    .filter((label) => !AUTO_WORDS.test(label))
+    .sort((first, second) => heightOf(second) - heightOf(first));
+  return auto.concat(rest);
+};
+
+// On auto the player answers with both words — "Авто 720p" — because it is
+// naming the rung it picked as well as saying who picked it. The chip that
+// should light up is the one the viewer chose, so the longest label the answer
+// starts with wins: "Авто" over "720p", but a pinned "1080p" over nothing.
+export const matchLabel = (labels, shown) => {
+  if (typeof shown !== 'string' || shown === '') return null;
+  const found = labels
+    .filter((label) => shown.startsWith(label))
+    .sort((first, second) => second.length - first.length);
+  return found.length > 0 ? found[0] : null;
+};
+
+const listQualities = (instance) =>
+  toArray(call(instance, 'api', 'qualities')).filter(
+    (label) => typeof label === 'string' && label !== '',
+  );
+
+export const buildPlayerjsAdapter = (instance) => ({
+  name: 'playerjs',
+  // The site's own list already carries its own word for auto, and it is the
+  // only one this player answers to.
+  hasAuto: false,
+  diagnose: () => `${listQualities(instance).length} in the site's list`,
+  list: () =>
+    orderLabels(listQualities(instance)).map((label) => ({
+      id: label,
+      label,
+    })),
+  current: () =>
+    matchLabel(listQualities(instance), call(instance, 'api', 'quality')),
+  select: (id) => {
+    const labels = listQualities(instance);
+    if (!labels.includes(id)) return false;
+    // Asking for the rung that is already playing would have the site tear
+    // the stream down and build it again for no change at all.
+    if (matchLabel(labels, call(instance, 'api', 'quality')) === id) {
+      return true;
+    }
+    call(instance, 'api', 'quality', id);
+    return true;
+  },
+});
+
+const isPlayerjsInstance = (value) => {
+  if (!isFunction(value, 'api')) return false;
+  return listQualities(value).length > 0;
+};
+
+// Only looked for once the page has said it has this player, because the check
+// itself is a call into an api() that belongs to somebody, and a sweep of every
+// global object with a method by that name is not a question worth asking.
+const createPlayerjsAdapter = () => {
+  if (!isFunction(pageWindow(), 'Playerjs')) return null;
+  const found = findGlobalMatch([
+    { name: 'playerjs', matches: isPlayerjsInstance },
+  ]);
+  return found === null ? null : buildPlayerjsAdapter(found.value);
+};
+
 const BUILDERS = {
   hls: buildHlsAdapter,
   dash: buildDashAdapter,
@@ -381,9 +460,12 @@ const createStreamAdapter = (video, host) => {
 };
 
 // Cheapest and most certain first: a <source> list is unambiguous, a named
-// player is next, and the sweep of page globals is the last thing tried.
+// player is next, and the sweeps of page globals come last — the streaming
+// engines before Playerjs, because an engine that hands over its ladder can say
+// more about it than a player that only answers in labels.
 export const ADAPTERS = [
   createSourceAdapter,
   createYouTubeAdapter,
   createStreamAdapter,
+  createPlayerjsAdapter,
 ];
