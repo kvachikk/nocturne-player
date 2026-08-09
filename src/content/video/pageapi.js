@@ -10,7 +10,13 @@
 // player is broken".
 const MAX_SCANNED_KEYS = 500;
 
-export const pageWindow = () => window.wrappedJSObject ?? window;
+// Null rather than a throw where there is no window at all, so that a sweep of
+// the page's globals is simply an empty answer instead of an error every caller
+// would have to catch.
+export const pageWindow = () => {
+  if (typeof window === 'undefined') return null;
+  return window.wrappedJSObject ?? window;
+};
 
 // Structured-cloned into the page's compartment so a page function can read it.
 // Falls back to the plain value where the helper is absent, which is a context
@@ -109,30 +115,37 @@ export const findApiAncestor = (element, names) => {
 // only they know. Bounded, and every property read is guarded, because a getter
 // on a page global can throw or be expensive.
 //
-// Every matcher is tried against each global in one sweep. Sweeping once per
-// engine instead meant walking the page's globals three times over, through
-// cross-compartment wrappers, in the moment the viewer was waiting for the
-// player to open.
-export const findGlobalMatch = (matchers) => {
+// Every matcher is tried against each global in one sweep, and the first object
+// that answers to a matcher is kept for it. Sweeping once per engine instead
+// meant walking the page's globals several times over, through
+// cross-compartment wrappers, in the moment the viewer was waiting.
+export const findGlobalMatches = (matchers) => {
   const scope = pageWindow();
+  const found = {};
+  if (scope === null) return found;
   let keys = [];
   try {
     keys = Object.keys(scope);
   } catch {
-    return null;
+    return found;
   }
 
+  let missing = matchers.length;
   const limit = Math.min(keys.length, MAX_SCANNED_KEYS);
-  for (let index = 0; index < limit; index++) {
+  for (let index = 0; index < limit && missing > 0; index++) {
     const value = read(scope, keys[index]);
     if (value === null || typeof value !== 'object') continue;
     for (const matcher of matchers) {
+      if (found[matcher.name] !== undefined) continue;
       try {
-        if (matcher.matches(value)) return { name: matcher.name, value };
+        if (matcher.matches(value)) {
+          found[matcher.name] = value;
+          missing--;
+        }
       } catch {
         continue;
       }
     }
   }
-  return null;
+  return found;
 };

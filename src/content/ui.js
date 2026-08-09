@@ -1,6 +1,8 @@
 import { readSiteChapters } from './video/chapters.js';
 import { createColorPanel } from './controls/colorpanel.js';
 import { createMenu } from './controls/menu.js';
+import { createAudioTracks } from './video/audiotracks.js';
+import { createPlaylist } from './video/playlist.js';
 import { createQuality } from './video/quality.js';
 import { createRecognizer } from './gestures/recognizer.js';
 import { createSeekBar } from './controls/seekbar.js';
@@ -16,6 +18,7 @@ const SCRUB_TICK_MS = 100;
 const TOAST_MS = 900;
 const HINT_MS = 2200;
 const SKIP_SECONDS = 10;
+const PLAYLIST_SETTLE_MS = 600;
 const FILL_RETRY_MS = 400;
 const FRAME_LIFE_MS = 2000;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
@@ -30,6 +33,7 @@ const FILL_ATTEMPTS = 25;
 
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
+  chevron: 'M7 10l5 5 5-5',
   colour:
     'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
   pip: 'M4 5h16v14H4zM12.5 12.5h6v5h-6z',
@@ -104,6 +108,11 @@ export const createOverlay = ({
   // to things created after them.
   const buttons = { colour: null, menu: null, play: null };
   const menuRef = { setSubtitle: () => {} };
+  const playlistRef = {
+    refresh: () => {},
+    isOpen: () => false,
+    close: () => {},
+  };
 
   // Playback speed is deliberately not restored: it belongs to the film you
   // were watching, not to the next one.
@@ -111,6 +120,8 @@ export const createOverlay = ({
 
   const visuals = createVisuals(video, stage);
   const quality = createQuality(video, playerHost);
+  const audio = createAudioTracks(video, playerHost);
+  const playlist = createPlaylist(video, playerHost);
   const tracks = createTrackManager(
     video,
     (text) => {
@@ -154,6 +165,7 @@ export const createOverlay = ({
     video,
     tracks,
     quality,
+    audio,
     onStyle: ({ scale }) => {
       cueBox.style.setProperty('--cue-scale', String(scale));
       onPersist({ subtitleScale: scale });
@@ -169,11 +181,15 @@ export const createOverlay = ({
 
   menuRef.setSubtitle = menu.setSubtitle;
 
-  const isPanelOpen = () => colorPanel.isOpen() || menu.isOpen();
+  const isPanelOpen = () =>
+    colorPanel.isOpen() || menu.isOpen() || playlistRef.isOpen();
 
   // The chrome must never fade out from under an open panel: the panel lives
   // inside it, and hiding it mid-adjustment looked like the player had frozen.
   const setChromeVisible = (isVisible) => {
+    // Read again on the way in: an episode that finished and rolled on to the
+    // next one has left the bar naming the one before it.
+    if (isVisible) playlistRef.refresh();
     chrome.toggleAttribute('hidden', !isVisible);
     if (chromeTimer !== null) clearTimeout(chromeTimer);
     chromeTimer = null;
@@ -185,6 +201,7 @@ export const createOverlay = ({
   };
 
   const closePanels = () => {
+    playlistRef.close();
     colorPanel.close();
     menu.close();
     buttons.colour?.setAttribute('aria-pressed', 'false');
@@ -337,8 +354,70 @@ export const createOverlay = ({
     leaveForHomeScreen();
   };
 
+  // The playlist sits where a thumb reaches it while the phone is held
+  // sideways — beside the way out, not buried in the settings sheet, which is
+  // no place to be changing episode from. One dropdown per step of the path
+  // the player itself keeps: the season, then the episode.
+  const playlistBar = el('div', { class: 'playlist-bar' });
+
+  const closePlaylistLists = () => {
+    for (const list of playlistBar.querySelectorAll('.playlist-list')) {
+      list.toggleAttribute('hidden', true);
+    }
+  };
+
+  const buildPlaylistPick = (level, index) => {
+    const list = el('div', { class: 'playlist-list', hidden: '' });
+    const value = el('button', { class: 'playlist-value', type: 'button' }, [
+      el('span', { class: 'playlist-current' }, [level.current]),
+      buildIcon(ICON.chevron),
+    ]);
+
+    value.addEventListener('click', () => {
+      const wasOpen = !list.hasAttribute('hidden');
+      closePlaylistLists();
+      list.toggleAttribute('hidden', wasOpen);
+    });
+
+    for (const [option, label] of level.labels.entries()) {
+      const isCurrent = label === level.current;
+      const attributes = {
+        class: isCurrent ? 'playlist-option is-current' : 'playlist-option',
+        type: 'button',
+      };
+      const entry = el('button', attributes, [label]);
+      entry.addEventListener('click', () => {
+        closePlaylistLists();
+        playlist.select(index, option);
+        // The player rewrites its own path as it switches, so the bar is read
+        // again rather than guessing what the press will have done — once now,
+        // and once more after the step it had to fetch has landed.
+        playlistRef.refresh();
+        setTimeout(() => playlistRef.refresh(), PLAYLIST_SETTLE_MS);
+      });
+      list.append(entry);
+    }
+
+    return el('div', { class: 'playlist-pick' }, [value, list]);
+  };
+
+  // A series only admits to having a playlist once its player has drawn one, so
+  // the bar appears when there is something to choose from and stays away when
+  // the page is a film.
+  playlistRef.refresh = () => {
+    playlist.refresh();
+    const levels = playlist.getLevels();
+    playlistBar.replaceChildren(...levels.map(buildPlaylistPick));
+    playlistBar.classList.toggle('is-empty', levels.length === 0);
+  };
+  playlistRef.isOpen = () =>
+    playlistBar.querySelector('.playlist-list:not([hidden])') !== null;
+  playlistRef.close = closePlaylistLists;
+  playlistRef.refresh();
+
   topbar.append(
     buildButton('Exit player', ICON.exit, () => onExit()),
+    playlistBar,
     el('div', { class: 'spacer' }),
     buildButton('Picture in picture', ICON.pip, enterPictureInPicture),
     buttons.colour,
