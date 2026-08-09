@@ -110,6 +110,88 @@
   pointer-events: auto;
 }
 
+/* The playlist sits next to the way out, where a thumb reaches it with the
+   phone held sideways: one dropdown per step of the path the site keeps, laid
+   out the way the site itself reads them — the season, then the episode. */
+.playlist-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.playlist-bar.is-empty {
+  display: none;
+}
+
+.playlist-pick {
+  position: relative;
+}
+
+.playlist-value {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 34vw;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 12%);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.playlist-value svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.playlist-current {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The list hangs under the value it belongs to, and is allowed to scroll:
+   a season can run to twenty-odd episodes and the screen is short. */
+.playlist-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 2;
+  display: flex;
+  overflow-y: auto;
+  flex-direction: column;
+  min-width: 100%;
+  max-height: 52vh;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgb(18 18 20 / 96%);
+  gap: 2px;
+}
+
+.playlist-list[hidden] {
+  display: none;
+}
+
+.playlist-option {
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.playlist-option.is-current {
+  background: rgb(255 255 255 / 16%);
+}
+
 .spacer {
   flex: 1;
 }
@@ -381,6 +463,10 @@
 
 /* A hairline instead of a gap: with rows of different heights, a line is what
  * makes it plain which chips belong to which label. */
+.menu-row.is-empty {
+  display: none;
+}
+
 .menu-row + .menu-row {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
