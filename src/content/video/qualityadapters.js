@@ -1,13 +1,5 @@
-import {
-  call,
-  findGlobalMatch,
-  isFunction,
-  pageWindow,
-  read,
-  toArray,
-  toPage,
-  write,
-} from './pageapi.js';
+import { call, isFunction, read, toArray, toPage, write } from './pageapi.js';
+import { findEngines, hasPlayerjs } from './engines.js';
 
 export const AUTO_ID = 'auto';
 
@@ -191,20 +183,6 @@ const createYouTubeAdapter = (video, host) => {
 
 // --- hls.js ------------------------------------------------------------------
 
-const isHlsEngine = (value) =>
-  Array.isArray(read(value, 'levels')) &&
-  typeof read(value, 'currentLevel') === 'number';
-
-const findHlsOnElement = (video) => {
-  const attached = ['hls', '_hls', '__hls', 'hlsPlayer'];
-  const element = video.wrappedJSObject ?? video;
-  for (const key of attached) {
-    const candidate = read(element, key);
-    if (candidate && isHlsEngine(candidate)) return candidate;
-  }
-  return null;
-};
-
 const buildHlsAdapter = (engine) => {
   const levels = () =>
     toArray(read(engine, 'levels')).map((level, index) => ({
@@ -240,10 +218,6 @@ const buildHlsAdapter = (engine) => {
 };
 
 // --- dash.js -----------------------------------------------------------------
-
-const isDashPlayer = (value) =>
-  isFunction(value, 'getBitrateInfoListFor') &&
-  isFunction(value, 'setQualityFor');
 
 const buildDashAdapter = (player) => {
   const setAuto = (isOn) => {
@@ -293,10 +267,6 @@ const buildDashAdapter = (player) => {
 };
 
 // --- Shaka Player ------------------------------------------------------------
-
-const isShakaPlayer = (value) =>
-  isFunction(value, 'getVariantTracks') &&
-  isFunction(value, 'selectVariantTrack');
 
 const buildShakaAdapter = (player) => {
   // The originals are handed back to selectVariantTrack untouched: a track is
@@ -418,54 +388,32 @@ export const buildPlayerjsAdapter = (instance) => ({
   },
 });
 
-const isPlayerjsInstance = (value) => {
-  if (!isFunction(value, 'api')) return false;
-  return listQualities(value).length > 0;
-};
-
-// Only looked for once the page has said it has this player, because the check
-// itself is a call into an api() that belongs to somebody, and a sweep of every
-// global object with a method by that name is not a question worth asking.
-const createPlayerjsAdapter = () => {
-  if (!isFunction(pageWindow(), 'Playerjs')) return null;
-  const found = findGlobalMatch([
-    { name: 'playerjs', matches: isPlayerjsInstance },
-  ]);
-  return found === null ? null : buildPlayerjsAdapter(found.value);
-};
-
-const BUILDERS = {
-  hls: buildHlsAdapter,
-  dash: buildDashAdapter,
-  shaka: buildShakaAdapter,
-};
-
-const MATCHERS = [
-  { name: 'hls', matches: isHlsEngine },
-  { name: 'dash', matches: isDashPlayer },
-  { name: 'shaka', matches: isShakaPlayer },
+// An engine that hands over its ladder can say more about it than a player that
+// only answers in labels, so Playerjs is the last one asked.
+const BUILDERS = [
+  { kind: 'hls', build: buildHlsAdapter },
+  { kind: 'dash', build: buildDashAdapter },
+  { kind: 'shaka', build: buildShakaAdapter },
+  { kind: 'playerjs', build: buildPlayerjsAdapter },
 ];
 
-// One sweep of the page's globals for all three streaming engines, after the
-// cheap check of whether the engine is hanging off the element itself.
-const createStreamAdapter = (video, host) => {
-  if (host !== null && isHlsEngine(host)) return buildHlsAdapter(host);
-
-  const attached = findHlsOnElement(video);
-  if (attached !== null) return buildHlsAdapter(attached);
-
-  const found = findGlobalMatch(MATCHERS);
-  if (found === null) return null;
-  return BUILDERS[found.name](found.value);
+const createEngineAdapter = (video, host) => {
+  const engines = findEngines(video, host);
+  for (const { kind, build } of BUILDERS) {
+    const engine = engines[kind];
+    if (engine === undefined) continue;
+    if (kind === 'playerjs' && !hasPlayerjs()) continue;
+    const adapter = build(engine);
+    // A player with nothing to offer is not an answer; the next one might be.
+    if (adapter.list().length > 0) return adapter;
+  }
+  return null;
 };
 
 // Cheapest and most certain first: a <source> list is unambiguous, a named
-// player is next, and the sweeps of page globals come last — the streaming
-// engines before Playerjs, because an engine that hands over its ladder can say
-// more about it than a player that only answers in labels.
+// player is next, and the sweep of the page's globals is the last thing tried.
 export const ADAPTERS = [
   createSourceAdapter,
   createYouTubeAdapter,
-  createStreamAdapter,
-  createPlayerjsAdapter,
+  createEngineAdapter,
 ];
