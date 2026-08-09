@@ -88,6 +88,7 @@ export const createMenu = ({
   video,
   tracks,
   quality,
+  audio,
   onStyle,
   onPickFile,
   onRate,
@@ -135,6 +136,29 @@ export const createMenu = ({
     setQuality(quality.getCurrent());
   };
 
+  // A row that offers one answer is a row in the way, so both of these are
+  // hidden until the site turns out to have something to choose between.
+  const buildOptionalRow = (label, source, onFail) => {
+    const holder = buildChipRow(label);
+    const paint = () => {
+      source.refresh();
+      const options = source.getOptions();
+      holder.row.classList.toggle('is-empty', !source.isSwitchable());
+      if (!source.isSwitchable()) return;
+      const setActive = paintChips(holder, options, (id) => {
+        if (!source.select(id)) onNotice(onFail);
+      });
+      setActive(source.getCurrent());
+    };
+    return { row: holder.row, paint };
+  };
+
+  const audioRow = buildOptionalRow(
+    'Audio',
+    audio,
+    'The site would not change the track',
+  );
+
   let scaleIndex = SUBTITLE_SCALES.indexOf(1);
   const sizeRow = buildStepper(
     'Size',
@@ -174,12 +198,14 @@ export const createMenu = ({
 
   paintSubtitles();
   qualityRow.chips.replaceChildren(buildNote('Reading the site…'));
+  audioRow.row.classList.add('is-empty');
 
   // Quality leads. It is the row people open this sheet for, it is the longest,
   // and on a phone held sideways the sheet scrolls — so anything below the
   // first two rows is a row somebody has to go looking for.
   const root = el('div', { class: 'panel menu' }, [
     qualityRow.row,
+    audioRow.row,
     speedRow.row,
     subtitleRow.row,
     sizeRow,
@@ -200,6 +226,7 @@ export const createMenu = ({
   const refresh = () => {
     paintSubtitles();
     paintQuality();
+    audioRow.paint();
   };
 
   const open = () => {
