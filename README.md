@@ -59,8 +59,15 @@ Adjustable size and a sync offset for when the subtitles drift.
 
 **Quality** — the first row of the sheet: pick the rung of the ladder rather
 than letting the site choose for you. Works with `<source>` lists, YouTube,
-hls.js, dash.js and Shaka; where a player exposes nothing, the sheet says what
-is playing instead of offering a choice that would do nothing.
+hls.js, dash.js, Shaka and Playerjs; where a player exposes nothing, the sheet
+says what is playing instead of offering a choice that would do nothing.
+
+**Audio tracks** — film sites often carry two or three dubs. The row below
+quality switches between them, and stays out of the way when there is only one.
+
+**Seasons and episodes** — a series shows two dropdowns in the top-left corner
+of the player: the season, and the episode beside it. Picking one plays it
+without leaving the player. A film has no bar at all.
 
 **Picture in picture** — the last button in the top row asks Android for the
 home screen and leaves the film playing behind it, which is the hand-off the
@@ -118,6 +125,11 @@ These are platform limits, not oversights:
   its own menu makes. A player that exposes neither an engine nor an answer is
   still beyond reach, and there the row reports the resolution being played
   instead of offering a choice that would do nothing.
+- **Episode selection follows the site's own player.** The dropdowns are read
+  from the controls Playerjs draws for its own path and are changed by pressing
+  those controls, because Playerjs refuses an entry asked for by index or by
+  name. A site that lists its episodes as ordinary page links, outside the
+  player, is not covered.
 - **Volume is left to the phone's own buttons.** The web platform has no access
   to the device volume.
 - **Rewind is not "negative 2x".** `playbackRate` cannot go below zero, so

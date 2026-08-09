@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.5.0][] - 2026-08-09
+
+### Added
+
+- **Seasons and episodes, as two dropdowns in the corner of the screen.** A
+  series on a Playerjs site keeps its path — the season, the dub, the episode —
+  and the player draws one control per step of it. Nocturne now reads those and
+  puts them where a thumb reaches with the phone held sideways, beside the way
+  out: the season on the left, the episode next to it, each opening a list with
+  the one you are on marked. Picking an episode plays it without leaving the
+  player. A step with only one thing in it — a film with one dub — is not drawn,
+  and a page that is a film has no bar at all.
+- **Audio tracks.** Film sites often carry two or three dubs and switching them
+  from a phone was close to impossible. The sheet now has a row for it, reading
+  hls.js `audioTracks`, dash.js `getTracksFor('audio')`, Shaka's audio
+  languages, Playerjs's own list and the `audioTracks` a browser exposes on the
+  video element. Like the quality row, it stays hidden when there is nothing to
+  choose between.
+
+### Changed
+
+- Quality and audio now find the page's player through one shared piece of
+  detection rather than each hunting for it separately.
+
+### Notes
+
+- Playerjs answers `api('next')` and `api('prev')`, but refuses an entry by
+  index or by name: `api('playlist')` is undefined, `api('play', n)` throws and
+  `api('find')` returns false. The dropdowns therefore press the player's own
+  rows, which is what its own menu does — reads and presses on elements the page
+  already drew, no code injected and nothing evaluated from a string.
+
 ## [0.4.0][] - 2026-08-08
 
 ### Added
@@ -196,7 +228,8 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.5.0
 [0.4.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.4.0
 [0.3.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.3.0
 [0.2.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.2.0
