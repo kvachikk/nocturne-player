@@ -1,15 +1,14 @@
-
 [![CI](https://github.com/kvachikk/nocturne-player/actions/workflows/ci.yml/badge.svg)](https://github.com/kvachikk/nocturne-player/actions/workflows/ci.yml)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![No data collected](https://img.shields.io/badge/data%20collected-none-brightgreen.svg)](PRIVACY.md)
 
-
 ### Default browser player:
+
 <img width="2856" height="1280" alt="default" src="https://github.com/user-attachments/assets/971f9017-4d59-406a-bff8-cce5e8c96229" />
 
 # Improved player:
-<img width="2856" height="1280" alt="better" src="https://github.com/user-attachments/assets/d70cf98b-1fc4-47b4-baf7-918c924103f0" />
 
+<img width="2856" height="1280" alt="better" src="https://github.com/user-attachments/assets/d70cf98b-1fc4-47b4-baf7-918c924103f0" />
 
 Free software, MPL-2.0. No accounts, no telemetry, no network access at all.
 
