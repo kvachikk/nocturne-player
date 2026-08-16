@@ -17,18 +17,13 @@ const SCRUB_STEP_SECONDS = 0.2;
 const SCRUB_TICK_MS = 100;
 const TOAST_MS = 900;
 const HINT_MS = 2200;
-const SKIP_SECONDS = 10;
+// Back is the button that undoes a line of dialogue you missed, forward the
+// one that jumps an opening — they are not the same distance.
+const SKIP_BACK_SECONDS = 5;
+const SKIP_FORWARD_SECONDS = 10;
 const PLAYLIST_SETTLE_MS = 600;
 const FILL_RETRY_MS = 400;
-const FRAME_LIFE_MS = 2000;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
-
-// The Android launcher, asked for by intent. Nothing is loaded from anywhere:
-// the URL names an activity on the phone, and the browser either hands it to
-// the system or ignores it.
-const HOME_INTENT =
-  'intent://#Intent;action=android.intent.action.MAIN;' +
-  'category=android.intent.category.HOME;end';
 const FILL_ATTEMPTS = 25;
 
 const ICON = {
@@ -36,7 +31,6 @@ const ICON = {
   chevron: 'M7 10l5 5 5-5',
   colour:
     'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
-  pip: 'M4 5h16v14H4zM12.5 12.5h6v5h-6z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
   pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
@@ -254,9 +248,9 @@ export const createOverlay = ({
         closePanels();
         return;
       }
-      const seconds = (count - 1) * SKIP_SECONDS;
-      if (zone === ZONE.HOLD_LEFT) skip(-seconds);
-      else if (zone === ZONE.HOLD_RIGHT) skip(seconds);
+      const steps = count - 1;
+      if (zone === ZONE.HOLD_LEFT) skip(-steps * SKIP_BACK_SECONDS);
+      else if (zone === ZONE.HOLD_RIGHT) skip(steps * SKIP_FORWARD_SECONDS);
       else setChromeVisible(chrome.hasAttribute('hidden'));
     },
     holdStart: ({ zone }) => {
@@ -301,9 +295,9 @@ export const createOverlay = ({
   };
 
   const centreRow = el('div', { class: 'centre-row' }, [
-    buildSkipButton(-SKIP_SECONDS),
+    buildSkipButton(-SKIP_BACK_SECONDS),
     buttons.play,
-    buildSkipButton(SKIP_SECONDS),
+    buildSkipButton(SKIP_FORWARD_SECONDS),
   ]);
 
   buttons.colour = buildButton('Colour', ICON.colour, () => {
@@ -321,38 +315,6 @@ export const createOverlay = ({
     buttons.menu.setAttribute('aria-pressed', String(menu.isOpen()));
     setChromeVisible(true);
   });
-
-  // Gecko has no Web API for the floating window on Android. What Android has
-  // is a rule: a video playing in a fullscreen app keeps playing, floating,
-  // once that app goes to the background. So the button does the one thing
-  // that reliably triggers it — it goes to the home screen.
-  //
-  // The launcher is asked for through an intent URL in a throwaway frame. In a
-  // frame, a browser that does not handle the scheme fails quietly instead of
-  // navigating the film away, which is what would happen from the top window.
-  const leaveForHomeScreen = () => {
-    const attributes = { class: 'hidden-frame', 'aria-hidden': 'true' };
-    const frame = el('iframe', attributes);
-    document.body.append(frame);
-    try {
-      frame.src = HOME_INTENT;
-    } catch (error) {
-      console.warn('Nocturne: could not reach the home screen', error);
-    }
-    setTimeout(() => frame.remove(), FRAME_LIFE_MS);
-  };
-
-  const enterPictureInPicture = () => {
-    setChromeVisible(true);
-    if (video.paused) video.play().catch(() => {});
-
-    if (typeof video.requestPictureInPicture === 'function') {
-      video.requestPictureInPicture().catch(leaveForHomeScreen);
-      return;
-    }
-
-    leaveForHomeScreen();
-  };
 
   // The playlist sits where a thumb reaches it while the phone is held
   // sideways — beside the way out, not buried in the settings sheet, which is
@@ -419,7 +381,6 @@ export const createOverlay = ({
     buildButton('Exit player', ICON.exit, () => onExit()),
     playlistBar,
     el('div', { class: 'spacer' }),
-    buildButton('Picture in picture', ICON.pip, enterPictureInPicture),
     buttons.colour,
     buttons.menu,
   );

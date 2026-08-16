@@ -516,15 +516,6 @@
   color: #16151c;
 }
 
-.hidden-frame {
-  position: absolute;
-  width: 0;
-  height: 0;
-  border: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
 .file-picker {
   position: absolute;
   width: 1px;
