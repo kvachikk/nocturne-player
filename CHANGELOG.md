@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.6.0][] - 2026-08-16
+
+### Changed
+
+- **The back button skips 5 seconds, not 10.** Going back is for the line of
+  dialogue you missed; going forward is for the opening you have seen. Forward
+  is unchanged at 10 seconds, and a double-tap in each zone now follows its own
+  button: 5 seconds a tap on the left, 10 on the right.
+
+### Removed
+
+- **Picture in picture.** Gecko has no floating-window API on Android, so the
+  button asked the system for the home screen and hoped: it worked on some
+  builds and did nothing on others. The top row is one button shorter.
+
+### Notes
+
+- **A screenshot button was attempted and is not possible.** Firefox for
+  Android does not give a decoded video frame to any script: `drawImage` of the
+  video into a 2D canvas leaves it transparent, a WebGL texture of it reads
+  back as a single flat colour (`#330033`), and `tabs.captureVisibleTab` draws
+  the page with the video area black. This was measured from the page's own
+  scripts, from a content script, and from a background script with host
+  permissions, on Firefox 153 on an AOSP Android 16 emulator and on a Pixel 9
+  Pro. The button is therefore not shipped rather than shipped broken.
 ## [0.5.0][] - 2026-08-09
 
 ### Added
@@ -228,7 +253,8 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.5.0...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.6.0
 [0.5.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.5.0
 [0.4.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.4.0
 [0.3.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.3.0
