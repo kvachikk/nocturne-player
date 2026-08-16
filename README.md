@@ -45,7 +45,8 @@ screen can never stop the film by accident. Pausing leaves the colour alone, for
 when you paused to look at something.
 
 **Hold for 2x** — hold the right zone to play at double speed, hold the left
-zone to rewind. Double-tap either zone for ±10 seconds.
+zone to rewind. Double-tap the right zone to jump 10 seconds forward, the left
+one to step 5 seconds back.
 
 **Pinch to zoom** — the picture fills the screen from the start, with no black
 bars; pinch to go back to the full frame and it snaps cleanly between the two.
@@ -71,16 +72,22 @@ quality switches between them, and stays out of the way when there is only one.
 of the player: the season, and the episode beside it. Picking one plays it
 without leaving the player. A film has no bar at all.
 
-**Picture in picture** — the last button in the top row asks Android for the
-home screen and leaves the film playing behind it, which is the hand-off the
-system already knows how to float. The player survives being backgrounded, so
-coming back finds it where you left it.
-
 **Chapters** — where a site publishes sections, the seek bar is cut at each one
 and names the section your finger is over.
 
 **On the site's own player** — a single fullscreen button sits on an inline
 video. It fades out when it is left alone and comes back on any tap.
+
+## What is not here
+
+**Saving a frame.** A screenshot button — press it, the controls step aside,
+the frame you are watching is saved to the phone — cannot be built on Firefox
+for Android today. The browser will not give the decoded frame to any script:
+drawing the video into a 2D canvas leaves it empty, uploading it to a WebGL
+texture returns one flat placeholder colour, and `tabs.captureVisibleTab`
+renders the page with the video area black. This holds for the page's own
+scripts as much as for an add-on, so there is nothing an add-on can do about
+it. The phone's own screenshot still works, controls and all.
 
 ## Privacy
 
