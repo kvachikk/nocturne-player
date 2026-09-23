@@ -343,6 +343,126 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
+/* The side that was double-tapped lights up as a half-moon reaching in from
+   its edge. It sits under the controls and never takes a touch: the taps that
+   keep a run going have to reach the surface beneath it. */
+.skip-feedback {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgb(255 255 255 / 10%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms var(--ease);
+}
+
+.skip-feedback.is-back {
+  left: 0;
+  border-radius: 0 50% 50% 0 / 0 50% 50% 0;
+}
+
+.skip-feedback.is-forward {
+  right: 0;
+  border-radius: 50% 0 0 50% / 50% 0 0 50%;
+}
+
+.skip-feedback.is-visible {
+  opacity: 1;
+  transition-duration: 120ms;
+}
+
+/* Fills the half-moon outwards from the finger, once per tap. */
+.skip-ripple {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 22%);
+  opacity: 0;
+  transform: scale(0);
+}
+
+.skip-ripple.is-rippling {
+  animation: skip-ripple 600ms var(--ease);
+}
+
+@keyframes skip-ripple {
+  from {
+    opacity: 1;
+    transform: scale(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(9);
+  }
+}
+
+.skip-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 70%);
+}
+
+.skip-arrows {
+  display: flex;
+}
+
+/* Back runs right to left: the same arrows, turned round and lit in the
+   opposite order. */
+.is-back .skip-arrows {
+  flex-direction: row-reverse;
+}
+
+.is-back .skip-arrow {
+  transform: scaleX(-1);
+}
+
+.skip-arrow {
+  width: 18px;
+  height: 18px;
+  fill: #fff;
+  opacity: 0.3;
+  filter: var(--icon-shadow);
+}
+
+.is-visible .skip-arrow {
+  animation: skip-arrow 750ms linear infinite;
+}
+
+.is-visible .skip-arrow:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.is-visible .skip-arrow:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes skip-arrow {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+  25% {
+    opacity: 1;
+  }
+}
+
+.skip-label {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Kept clear of the volume strip that runs down the right edge. */
 .panel {
   position: absolute;
@@ -685,7 +805,17 @@
     transition-duration: 1ms;
   }
 
-  .panel.is-open {
+  .skip-feedback {
+    transition-duration: 1ms;
+  }
+
+  .panel.is-open,
+  .skip-ripple.is-rippling,
+  .is-visible .skip-arrow {
     animation: none;
+  }
+
+  .is-visible .skip-arrow {
+    opacity: 1;
   }
 }

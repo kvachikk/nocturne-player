@@ -7,6 +7,7 @@ import { createQuality } from './video/quality.js';
 import { createRecognizer } from './gestures/recognizer.js';
 import { createSeekBar } from './controls/seekbar.js';
 import { createSeeker } from './video/seek.js';
+import { createSkipFeedback } from './controls/skipfeedback.js';
 import { createTrackManager } from './video/tracks.js';
 import { createVisuals } from './video/visuals.js';
 import { el } from './shell.js';
@@ -21,6 +22,10 @@ const HINT_MS = 2200;
 // one that jumps an opening — they are not the same distance.
 const SKIP_BACK_SECONDS = 5;
 const SKIP_FORWARD_SECONDS = 10;
+const SIDE_SKIP_SECONDS = {
+  [ZONE.HOLD_LEFT]: -SKIP_BACK_SECONDS,
+  [ZONE.HOLD_RIGHT]: SKIP_FORWARD_SECONDS,
+};
 const PLAYLIST_SETTLE_MS = 600;
 const FILL_RETRY_MS = 400;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
@@ -153,12 +158,14 @@ export const createOverlay = ({
 
   const seek = createSeeker(video, playerHost);
   const seekBar = createSeekBar(video, seek);
+  const skipFeedback = createSkipFeedback();
 
   let chromeTimer = null;
   let scrubTimer = null;
   let toastTimer = null;
   let pinchBase = 1;
   let wasPlayingBeforeScrub = false;
+  let skipTarget = null;
 
   const showToast = (text, duration = TOAST_MS) => {
     toast.textContent = text;
@@ -226,9 +233,13 @@ export const createOverlay = ({
     setChromeVisible(true);
   };
 
+  // A tap that lands while the last seek is still in flight counts from where
+  // that seek is going, not from the frame still on screen, so every tap in a
+  // run is worth its full step.
   const skip = (seconds) => {
-    seek(video.currentTime + seconds);
-    showToast(`${seconds > 0 ? '+' : ''}${seconds}s`);
+    const from =
+      video.seeking && skipTarget !== null ? skipTarget : video.currentTime;
+    skipTarget = seek(from + seconds);
   };
 
   const stopScrub = () => {
@@ -260,15 +271,18 @@ export const createOverlay = ({
       }
       setChromeVisible(chrome.hasAttribute('hidden'));
     },
-    multiTap: ({ zone, count }) => {
+    multiTap: ({ zone, x, y }) => {
       if (isPanelOpen()) {
         closePanels();
         return;
       }
-      const steps = count - 1;
-      if (zone === ZONE.HOLD_LEFT) skip(-steps * SKIP_BACK_SECONDS);
-      else if (zone === ZONE.HOLD_RIGHT) skip(steps * SKIP_FORWARD_SECONDS);
-      else setChromeVisible(chrome.hasAttribute('hidden'));
+      const seconds = SIDE_SKIP_SECONDS[zone];
+      if (seconds === undefined) {
+        setChromeVisible(chrome.hasAttribute('hidden'));
+        return;
+      }
+      skip(seconds);
+      skipFeedback.show(seconds, x, y);
     },
     holdStart: ({ zone }) => {
       const isForward = zone === ZONE.HOLD_RIGHT;
@@ -479,7 +493,14 @@ export const createOverlay = ({
 
   restoreSettings();
   fillWhenReady();
-  shadow.append(surface, cueBox, chrome, toast, filePicker);
+  shadow.append(
+    surface,
+    ...skipFeedback.roots,
+    cueBox,
+    chrome,
+    toast,
+    filePicker,
+  );
   setChromeVisible(true);
 
   return {
@@ -488,6 +509,7 @@ export const createOverlay = ({
     destroy: () => {
       recognizer.destroy();
       seekBar.destroy();
+      skipFeedback.destroy();
       tracks.destroy();
       stopScrub();
       if (chromeTimer !== null) clearTimeout(chromeTimer);
