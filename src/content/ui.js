@@ -29,8 +29,10 @@ const FILL_ATTEMPTS = 25;
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
   chevron: 'M7 10l5 5 5-5',
-  colour:
-    'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
+  palette:
+    'M12 3c-5 0-9 3.7-9 8.4 0 4.9 4 8.6 8.7 8.6 1.4 0 2.1-.9 2.1-1.9 ' +
+    '0-.6-.3-1-.6-1.4-.3-.4-.6-.8-.6-1.4 0-1 .8-1.8 1.8-1.8H16 ' +
+    'c2.8 0 5-2.2 5-5C21 6.5 17 3 12 3z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
   pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
@@ -41,12 +43,36 @@ const buildIcon = (path) =>
     el('path', { d: path }),
   ]);
 
-const buildButton = (label, path, onClick, className = 'button') => {
+const buildButton = (label, icon, onClick, className = 'button') => {
   const attributes = { class: className, type: 'button', title: label };
-  const button = el('button', attributes, [buildIcon(path)]);
+  const graphic = typeof icon === 'string' ? buildIcon(icon) : icon;
+  const button = el('button', attributes, [graphic]);
   button.addEventListener('click', onClick);
   return button;
 };
+
+// Paint on a palette, each blob its own colour: a lone outline read as a
+// blank shape, and colour is what the panel behind it is about.
+const PAINTS = [
+  { x: 7.4, y: 11.6, colour: '#ff6b6b' },
+  { x: 9.4, y: 7.3, colour: '#ffd166' },
+  { x: 14.2, y: 6.9, colour: '#6ee7a8' },
+  { x: 17.4, y: 10.4, colour: '#6cb8ff' },
+];
+
+const buildPaletteIcon = () =>
+  el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+    el('path', { d: ICON.palette }),
+    ...PAINTS.map(({ x, y, colour }) =>
+      el('circle', {
+        cx: String(x),
+        cy: String(y),
+        r: '1.5',
+        fill: colour,
+        stroke: 'none',
+      }),
+    ),
+  ]);
 
 // A ring with an arrowhead and the number inside, the way phone players draw
 // their skip controls.
@@ -300,7 +326,7 @@ export const createOverlay = ({
     buildSkipButton(SKIP_FORWARD_SECONDS),
   ]);
 
-  buttons.colour = buildButton('Colour', ICON.colour, () => {
+  buttons.colour = buildButton('Colour', buildPaletteIcon(), () => {
     menu.close();
     buttons.menu.setAttribute('aria-pressed', 'false');
     colorPanel.toggle();
