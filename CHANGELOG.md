@@ -7,18 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
-### Changed
-
-- **The picture starts whole instead of filling the screen.** Filling cropped
-  the edges off every film that was not the screen's own shape, and cut most
-  of an upright video away with the phone on its side. Pinch out to fill the
-  screen, as before.
-
-### Fixed
-
-- **The controls stay down after a swipe to the next video.** Each video a
-  feed moved on to came up with the controls drawn over it.
-
 ## [0.7.0][] - 2026-09-23
 
 ### Added
@@ -27,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   upright video on screen — TikTok, Reels, Shorts — a swipe up moves on to the
   next video and a swipe down goes back, without leaving the player. The swipe
   scrolls the site's own feed, so the site loads and counts the next video as
-  it would for a swipe of its own. On a landscape film, or with the phone on
+  it would for a swipe of its own, and the next video comes up on its own,
+  with no controls drawn over it. On a landscape film, or with the phone on
   its side, a vertical swipe does nothing, as before.
 - **Double-tap feedback on the side you tapped.** The side lights up as a
   half-moon with arrows running the way the film is going and the seconds the
@@ -38,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **The player no longer turns the screen to landscape.** It opens in the
   position the phone is held in and follows it from there. Forcing landscape
   put every upright video on its side the moment the player opened.
+- **The picture starts whole instead of filling the screen.** Filling cropped
+  the edges off every film that was not the screen's own shape, and cut most
+  of an upright video away with the phone on its side. Pinch out to fill the
+  screen, as before.
 - **Every tap of a double-tap run seeks at once.** From the second tap on, the
   jump happens the moment the finger lifts instead of a quarter of a second
   later, and a tap that lands mid-seek counts from where that seek is going.
