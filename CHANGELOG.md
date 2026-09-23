@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+### Changed
+
+- **The picture starts whole instead of filling the screen.** Filling cropped
+  the edges off every film that was not the screen's own shape, and cut most
+  of an upright video away with the phone on its side. Pinch out to fill the
+  screen, as before.
+
+### Fixed
+
+- **The controls stay down after a swipe to the next video.** Each video a
+  feed moved on to came up with the controls drawn over it.
+
 ## [0.7.0][] - 2026-09-23
 
 ### Added

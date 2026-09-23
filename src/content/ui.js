@@ -28,9 +28,7 @@ const SIDE_SKIP_SECONDS = {
   [ZONE.HOLD_RIGHT]: SKIP_FORWARD_SECONDS,
 };
 const PLAYLIST_SETTLE_MS = 600;
-const FILL_RETRY_MS = 400;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
-const FILL_ATTEMPTS = 25;
 
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
@@ -491,17 +489,6 @@ export const createOverlay = ({
     applyWarmth(settings.warmth);
   };
 
-  // Black bars cropped from the start; metadata may not have arrived yet. The
-  // retry gives up rather than ticking for as long as the film lasts on a
-  // stream that never reports its dimensions.
-  let fillAttempts = 0;
-  const fillWhenReady = () => {
-    if (visuals.fillScreen()) return;
-    fillAttempts += 1;
-    if (fillAttempts >= FILL_ATTEMPTS) return;
-    setTimeout(fillWhenReady, FILL_RETRY_MS);
-  };
-
   // Walking the site's page data is not free, so it happens after the picture
   // is up rather than in the way of it — and more than once, because a page
   // that was navigated to fills its data in some time after the video starts.
@@ -513,7 +500,6 @@ export const createOverlay = ({
   );
 
   restoreSettings();
-  fillWhenReady();
   // Kept as a list so the overlay can take itself off the screen again: the
   // shadow root outlives it when a feed moves on to its next video.
   const roots = [

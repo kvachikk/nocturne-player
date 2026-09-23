@@ -49,8 +49,9 @@ zone to rewind. Double-tap the right zone to jump 10 seconds forward, the left
 one to step 5 seconds back; keep tapping to go further. The side you tapped
 lights up with the seconds the run has covered.
 
-**Pinch to zoom** — the picture fills the screen from the start, with no black
-bars; pinch to go back to the full frame and it snaps cleanly between the two.
+**Pinch to zoom** — the picture starts whole, exactly as it was shot; pinch out
+to fill the screen and crop the black bars, and it snaps cleanly between the
+two.
 
 **Swipe through short videos** — on an upright video with the phone held
 upright, the way TikTok, Reels and Shorts are watched, swipe up for the next
