@@ -62,9 +62,11 @@ const start = async () => {
     session = createSession(video, {
       settings: current,
       onPersist: persist,
-      onExit: () => {
+      // A feed may have moved on while the player was open, so the badge goes
+      // back on whichever video the player was showing last.
+      onExit: (lastVideo) => {
         session = null;
-        badge.show(video);
+        badge.show(lastVideo);
       },
     });
     await session.enter();

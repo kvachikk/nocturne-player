@@ -11,6 +11,7 @@ import { createSkipFeedback } from './controls/skipfeedback.js';
 import { createTrackManager } from './video/tracks.js';
 import { createVisuals } from './video/visuals.js';
 import { el } from './shell.js';
+import { isFeedShaped } from './gestures/swipe.js';
 import { ZONE } from './gestures/zones.js';
 
 const CHROME_IDLE_MS = 3000;
@@ -115,6 +116,7 @@ export const createOverlay = ({
   settings,
   onPersist,
   playerHost,
+  onFeedStep,
 }) => {
   const surface = el('div', { class: 'layer surface' });
   const scrim = el('div', { class: 'layer scrim' });
@@ -263,45 +265,59 @@ export const createOverlay = ({
 
   const dragTargets = { [ZONE.SEEK]: seekBar };
 
-  const recognizer = createRecognizer(surface, {
-    tap: () => {
-      if (isPanelOpen()) {
-        closePanels();
-        return;
-      }
-      setChromeVisible(chrome.hasAttribute('hidden'));
-    },
-    multiTap: ({ zone, x, y }) => {
-      if (isPanelOpen()) {
-        closePanels();
-        return;
-      }
-      const seconds = SIDE_SKIP_SECONDS[zone];
-      if (seconds === undefined) {
+  const canSwipe = () =>
+    !isPanelOpen() &&
+    isFeedShaped(
+      window.innerWidth,
+      window.innerHeight,
+      video.videoWidth,
+      video.videoHeight,
+    );
+
+  const recognizer = createRecognizer(
+    surface,
+    {
+      tap: () => {
+        if (isPanelOpen()) {
+          closePanels();
+          return;
+        }
         setChromeVisible(chrome.hasAttribute('hidden'));
-        return;
-      }
-      skip(seconds);
-      skipFeedback.show(seconds, x, y);
+      },
+      multiTap: ({ zone, x, y }) => {
+        if (isPanelOpen()) {
+          closePanels();
+          return;
+        }
+        const seconds = SIDE_SKIP_SECONDS[zone];
+        if (seconds === undefined) {
+          setChromeVisible(chrome.hasAttribute('hidden'));
+          return;
+        }
+        skip(seconds);
+        skipFeedback.show(seconds, x, y);
+      },
+      holdStart: ({ zone }) => {
+        const isForward = zone === ZONE.HOLD_RIGHT;
+        startScrub(isForward ? 1 : -1);
+        showToast(isForward ? '2x ▶▶' : '◀◀ 2x');
+      },
+      holdEnd: () => stopScrub(),
+      dragStart: ({ zone }) => {
+        setChromeVisible(true);
+        dragTargets[zone]?.start();
+      },
+      dragMove: (detail) => dragTargets[detail.zone]?.move(detail),
+      dragEnd: ({ zone }) => dragTargets[zone]?.end(),
+      pinchStart: () => {
+        pinchBase = visuals.beginPinch();
+      },
+      pinchMove: ({ scale }) => visuals.pinchTo(pinchBase * scale),
+      pinchEnd: () => visuals.endPinch(),
+      swipe: ({ direction }) => onFeedStep(direction),
     },
-    holdStart: ({ zone }) => {
-      const isForward = zone === ZONE.HOLD_RIGHT;
-      startScrub(isForward ? 1 : -1);
-      showToast(isForward ? '2x ▶▶' : '◀◀ 2x');
-    },
-    holdEnd: () => stopScrub(),
-    dragStart: ({ zone }) => {
-      setChromeVisible(true);
-      dragTargets[zone]?.start();
-    },
-    dragMove: (detail) => dragTargets[detail.zone]?.move(detail),
-    dragEnd: ({ zone }) => dragTargets[zone]?.end(),
-    pinchStart: () => {
-      pinchBase = visuals.beginPinch();
-    },
-    pinchMove: ({ scale }) => visuals.pinchTo(pinchBase * scale),
-    pinchEnd: () => visuals.endPinch(),
-  });
+    { canSwipe },
+  );
 
   buttons.play = buildButton(
     'Play or pause',
@@ -493,20 +509,25 @@ export const createOverlay = ({
 
   restoreSettings();
   fillWhenReady();
-  shadow.append(
+  // Kept as a list so the overlay can take itself off the screen again: the
+  // shadow root outlives it when a feed moves on to its next video.
+  const roots = [
     surface,
     ...skipFeedback.roots,
     cueBox,
     chrome,
     toast,
     filePicker,
-  );
+  ];
+  shadow.append(...roots);
   setChromeVisible(true);
 
   return {
     relayout: () => visuals.relayout(),
     repin: () => visuals.repin(),
+    notify: (text) => showToast(text, HINT_MS),
     destroy: () => {
+      for (const node of roots) node.remove();
       recognizer.destroy();
       seekBar.destroy();
       skipFeedback.destroy();

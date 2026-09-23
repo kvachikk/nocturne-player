@@ -343,6 +343,33 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
+/* Shown while a feed moves on to its next video. The picture has gone back to
+   the page by then, so without it the screen would be a black gap that looks
+   like the player has stalled. */
+.feed-loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border: 3px solid rgba(244, 241, 255, 0.22);
+  border-top-color: #f4f1ff;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: feed-spin 800ms linear infinite;
+}
+
+.feed-loader[hidden] {
+  display: none;
+}
+
+@keyframes feed-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 /* The side that was double-tapped lights up as a half-moon reaching in from
    its edge. It sits under the controls and never takes a touch: the taps that
    keep a run going have to reach the surface beneath it. */
@@ -810,6 +837,7 @@
   }
 
   .panel.is-open,
+  .feed-loader,
   .skip-ripple.is-rippling,
   .is-visible .skip-arrow {
     animation: none;
