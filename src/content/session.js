@@ -172,7 +172,6 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
 
   let isActive = false;
   let isOrientationLocked = false;
-  let isFullscreenWanted = true;
   let styleGuard = null;
   let pinnedStyle = null;
   let repinCount = 0;
@@ -335,7 +334,6 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
   };
 
   const restoreFullscreen = () => {
-    if (!isFullscreenWanted) return;
     if (document.fullscreenElement === stage) return;
     // Gecko may refuse this without a fresh gesture. The stage covers the
     // viewport on its own, so the player stays usable either way.
@@ -388,14 +386,6 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
       settings,
       onPersist,
       playerHost,
-      onImmersiveChange: (isOn) => {
-        isFullscreenWanted = isOn;
-        if (isOn) {
-          restoreFullscreen();
-        } else if (document.fullscreenElement === stage) {
-          document.exitFullscreen().catch(() => {});
-        }
-      },
     });
 
     later(() => {
@@ -405,9 +395,7 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     watchForReturn();
 
     // The button that opens the player is drawn as a fullscreen icon, so it
-    // takes the screen — every time, not only when a switch left over from a
-    // previous session happens to agree. The switch in the sheet still drops
-    // back to the overlay, for the rest of this session.
+    // takes the screen, every time.
     const isOn = await requestFullscreen(stage);
     if (isOn) await applyLandscape();
     scheduleRelayout();

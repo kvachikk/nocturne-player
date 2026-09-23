@@ -1,8 +1,6 @@
 import { el } from '../shell.js';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-const SUBTITLE_SCALES = [0.8, 1, 1.25, 1.6];
-const SYNC_STEP_SECONDS = 0.5;
 
 // A row of chips whose contents are repainted rather than rebuilt, because a
 // streaming site only learns what it can offer after the film has started and
@@ -47,32 +45,6 @@ const paintChips = (holder, options, onSelect) => {
 
 const buildNote = (text) => el('span', { class: 'menu-note', text });
 
-const buildStepper = (label, onStep, initial) => {
-  const value = el('span', { class: 'step-value', text: initial });
-  const minus = el('button', {
-    class: 'step-button',
-    type: 'button',
-    text: '−',
-  });
-  const plus = el('button', {
-    class: 'step-button',
-    type: 'button',
-    text: '+',
-  });
-
-  minus.addEventListener('click', () => {
-    value.textContent = onStep(-1);
-  });
-  plus.addEventListener('click', () => {
-    value.textContent = onStep(1);
-  });
-
-  return el('div', { class: 'menu-row' }, [
-    el('span', { class: 'menu-label', text: label }),
-    el('div', { class: 'chips' }, [minus, value, plus]),
-  ]);
-};
-
 const buildToggle = (label, isOn, onToggle) => {
   const chip = el('button', { class: 'chip', type: 'button', text: label });
   chip.setAttribute('aria-pressed', String(isOn));
@@ -89,10 +61,8 @@ export const createMenu = ({
   tracks,
   quality,
   audio,
-  onStyle,
   onPickFile,
   onRate,
-  onImmersive,
   onNotice,
 }) => {
   const speedRow = buildChipRow('Speed');
@@ -159,30 +129,6 @@ export const createMenu = ({
     'The site would not change the track',
   );
 
-  let scaleIndex = SUBTITLE_SCALES.indexOf(1);
-  const sizeRow = buildStepper(
-    'Size',
-    (direction) => {
-      const next = scaleIndex + direction;
-      scaleIndex = Math.min(SUBTITLE_SCALES.length - 1, Math.max(0, next));
-      const scale = SUBTITLE_SCALES[scaleIndex];
-      onStyle({ scale });
-      return `${Math.round(scale * 100)}%`;
-    },
-    '100%',
-  );
-
-  const syncRow = buildStepper(
-    'Sync',
-    (direction) => {
-      const next = tracks.getOffset() + direction * SYNC_STEP_SECONDS;
-      tracks.setOffset(Number(next.toFixed(1)));
-      const offset = tracks.getOffset();
-      return `${offset > 0 ? '+' : ''}${offset.toFixed(1)}s`;
-    },
-    '+0.0s',
-  );
-
   const loadButton = el('button', {
     class: 'chip',
     type: 'button',
@@ -193,8 +139,6 @@ export const createMenu = ({
   const nativeToggle = buildToggle('Native', tracks.isNative(), () => {
     tracks.setNative(!tracks.isNative());
   });
-
-  const immersiveToggle = buildToggle('Fullscreen', true, onImmersive);
 
   paintSubtitles();
   qualityRow.chips.replaceChildren(buildNote('Reading the site…'));
@@ -208,15 +152,9 @@ export const createMenu = ({
     audioRow.row,
     speedRow.row,
     subtitleRow.row,
-    sizeRow,
-    syncRow,
     el('div', { class: 'menu-row' }, [
       el('span', { class: 'menu-label', text: 'Source' }),
       el('div', { class: 'chips' }, [loadButton, nativeToggle]),
-    ]),
-    el('div', { class: 'menu-row' }, [
-      el('span', { class: 'menu-label', text: 'Screen' }),
-      el('div', { class: 'chips' }, [immersiveToggle]),
     ]),
   ]);
 

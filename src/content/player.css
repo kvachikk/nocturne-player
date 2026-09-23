@@ -526,13 +526,12 @@
 
 /* Cues sit above the seek bar and are set with textContent, never parsed. */
 .cue {
-  --cue-scale: 1;
   position: absolute;
   left: 8%;
   right: 8%;
   bottom: calc(var(--seek-lift) + 46px);
   text-align: center;
-  font-size: calc(20px * var(--cue-scale));
+  font-size: 20px;
   line-height: 1.35;
   white-space: pre-line;
   text-shadow:

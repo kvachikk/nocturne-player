@@ -43,7 +43,6 @@ export const createTrackManager = (video, onCue, onSelection, host = null) => {
 
   let cues = [];
   let selected = -1;
-  let offset = 0;
   let lastText = '';
   let isNative = false;
 
@@ -67,7 +66,7 @@ export const createTrackManager = (video, onCue, onSelection, host = null) => {
 
   const update = () => {
     if (selected === -1 || isNative || isSiteId(selected)) return;
-    emit(findCueText(cues, video.currentTime + offset));
+    emit(findCueText(cues, video.currentTime));
   };
 
   const siteOptions = () =>
@@ -173,19 +172,13 @@ export const createTrackManager = (video, onCue, onSelection, host = null) => {
     select,
     addCues,
     getSelected: () => selected,
-    getOffset: () => offset,
-    setOffset: (value) => {
-      offset = value;
-      update();
-    },
     setNative: (value) => {
       isNative = value;
       emit('');
       if (selected !== -1) select(selected);
     },
     isNative: () => isNative,
-    // The site paints its own captions, so ours are the only ones with a
-    // timing offset or a size to speak of.
+    // The site paints its own captions; only ours are drawn by the player.
     isSiteSelected: () => isSiteId(selected),
     destroy: () => {
       video.removeEventListener('timeupdate', update);

@@ -110,7 +110,6 @@ export const createOverlay = ({
   settings,
   onPersist,
   playerHost,
-  onImmersiveChange,
 }) => {
   const surface = el('div', { class: 'layer surface' });
   const scrim = el('div', { class: 'layer scrim' });
@@ -186,17 +185,9 @@ export const createOverlay = ({
     tracks,
     quality,
     audio,
-    onStyle: ({ scale }) => {
-      cueBox.style.setProperty('--cue-scale', String(scale));
-      onPersist({ subtitleScale: scale });
-    },
     onPickFile: () => filePicker.click(),
     onRate: () => {},
     onNotice: (text) => showToast(text, HINT_MS),
-    // Deliberately not persisted, the way playback speed is not: it belongs to
-    // the film being watched now, and a viewer who dropped out of fullscreen
-    // once should still get fullscreen from a button that says fullscreen.
-    onImmersive: onImmersiveChange,
   });
 
   menuRef.setSubtitle = menu.setSubtitle;
@@ -463,7 +454,6 @@ export const createOverlay = ({
       colorPanel.setValue(key, settings[key]);
     }
     applyWarmth(settings.warmth);
-    cueBox.style.setProperty('--cue-scale', String(settings.subtitleScale));
   };
 
   // Black bars cropped from the start; metadata may not have arrived yet. The
