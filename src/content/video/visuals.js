@@ -119,12 +119,6 @@ export const createVisuals = (video, stage) => {
     // picture drops back into its letterbox the moment the site touches it.
     repin: apply,
     // Crops the letterbox away, which is what most people want on a phone.
-    fillScreen: () => {
-      if (video.videoWidth === 0) return false;
-      intent = FILL;
-      place(coverScale());
-      return true;
-    },
     setColour: (patch) => {
       Object.assign(colour, patch);
       apply();
