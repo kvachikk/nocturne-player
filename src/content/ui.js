@@ -7,9 +7,11 @@ import { createQuality } from './video/quality.js';
 import { createRecognizer } from './gestures/recognizer.js';
 import { createSeekBar } from './controls/seekbar.js';
 import { createSeeker } from './video/seek.js';
+import { createSkipFeedback } from './controls/skipfeedback.js';
 import { createTrackManager } from './video/tracks.js';
 import { createVisuals } from './video/visuals.js';
 import { el } from './shell.js';
+import { isFeedShaped } from './gestures/swipe.js';
 import { ZONE } from './gestures/zones.js';
 
 const CHROME_IDLE_MS = 3000;
@@ -21,6 +23,10 @@ const HINT_MS = 2200;
 // one that jumps an opening — they are not the same distance.
 const SKIP_BACK_SECONDS = 5;
 const SKIP_FORWARD_SECONDS = 10;
+const SIDE_SKIP_SECONDS = {
+  [ZONE.HOLD_LEFT]: -SKIP_BACK_SECONDS,
+  [ZONE.HOLD_RIGHT]: SKIP_FORWARD_SECONDS,
+};
 const PLAYLIST_SETTLE_MS = 600;
 const FILL_RETRY_MS = 400;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
@@ -29,8 +35,10 @@ const FILL_ATTEMPTS = 25;
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
   chevron: 'M7 10l5 5 5-5',
-  colour:
-    'M12 3a9 9 0 1 0 0 18 2.5 2.5 0 0 0 0-5h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 0-9z',
+  palette:
+    'M12 3c-5 0-9 3.7-9 8.4 0 4.9 4 8.6 8.7 8.6 1.4 0 2.1-.9 2.1-1.9 ' +
+    '0-.6-.3-1-.6-1.4-.3-.4-.6-.8-.6-1.4 0-1 .8-1.8 1.8-1.8H16 ' +
+    'c2.8 0 5-2.2 5-5C21 6.5 17 3 12 3z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
   pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
@@ -41,12 +49,36 @@ const buildIcon = (path) =>
     el('path', { d: path }),
   ]);
 
-const buildButton = (label, path, onClick, className = 'button') => {
+const buildButton = (label, icon, onClick, className = 'button') => {
   const attributes = { class: className, type: 'button', title: label };
-  const button = el('button', attributes, [buildIcon(path)]);
+  const graphic = typeof icon === 'string' ? buildIcon(icon) : icon;
+  const button = el('button', attributes, [graphic]);
   button.addEventListener('click', onClick);
   return button;
 };
+
+// Paint on a palette, each blob its own colour: a lone outline read as a
+// blank shape, and colour is what the panel behind it is about.
+const PAINTS = [
+  { x: 7.4, y: 11.6, colour: '#ff6b6b' },
+  { x: 9.4, y: 7.3, colour: '#ffd166' },
+  { x: 14.2, y: 6.9, colour: '#6ee7a8' },
+  { x: 17.4, y: 10.4, colour: '#6cb8ff' },
+];
+
+const buildPaletteIcon = () =>
+  el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
+    el('path', { d: ICON.palette }),
+    ...PAINTS.map(({ x, y, colour }) =>
+      el('circle', {
+        cx: String(x),
+        cy: String(y),
+        r: '1.5',
+        fill: colour,
+        stroke: 'none',
+      }),
+    ),
+  ]);
 
 // A ring with an arrowhead and the number inside, the way phone players draw
 // their skip controls.
@@ -84,7 +116,7 @@ export const createOverlay = ({
   settings,
   onPersist,
   playerHost,
-  onImmersiveChange,
+  onFeedStep,
 }) => {
   const surface = el('div', { class: 'layer surface' });
   const scrim = el('div', { class: 'layer scrim' });
@@ -128,12 +160,14 @@ export const createOverlay = ({
 
   const seek = createSeeker(video, playerHost);
   const seekBar = createSeekBar(video, seek);
+  const skipFeedback = createSkipFeedback();
 
   let chromeTimer = null;
   let scrubTimer = null;
   let toastTimer = null;
   let pinchBase = 1;
   let wasPlayingBeforeScrub = false;
+  let skipTarget = null;
 
   const showToast = (text, duration = TOAST_MS) => {
     toast.textContent = text;
@@ -160,17 +194,9 @@ export const createOverlay = ({
     tracks,
     quality,
     audio,
-    onStyle: ({ scale }) => {
-      cueBox.style.setProperty('--cue-scale', String(scale));
-      onPersist({ subtitleScale: scale });
-    },
     onPickFile: () => filePicker.click(),
     onRate: () => {},
     onNotice: (text) => showToast(text, HINT_MS),
-    // Deliberately not persisted, the way playback speed is not: it belongs to
-    // the film being watched now, and a viewer who dropped out of fullscreen
-    // once should still get fullscreen from a button that says fullscreen.
-    onImmersive: onImmersiveChange,
   });
 
   menuRef.setSubtitle = menu.setSubtitle;
@@ -209,9 +235,13 @@ export const createOverlay = ({
     setChromeVisible(true);
   };
 
+  // A tap that lands while the last seek is still in flight counts from where
+  // that seek is going, not from the frame still on screen, so every tap in a
+  // run is worth its full step.
   const skip = (seconds) => {
-    seek(video.currentTime + seconds);
-    showToast(`${seconds > 0 ? '+' : ''}${seconds}s`);
+    const from =
+      video.seeking && skipTarget !== null ? skipTarget : video.currentTime;
+    skipTarget = seek(from + seconds);
   };
 
   const stopScrub = () => {
@@ -235,42 +265,59 @@ export const createOverlay = ({
 
   const dragTargets = { [ZONE.SEEK]: seekBar };
 
-  const recognizer = createRecognizer(surface, {
-    tap: () => {
-      if (isPanelOpen()) {
-        closePanels();
-        return;
-      }
-      setChromeVisible(chrome.hasAttribute('hidden'));
+  const canSwipe = () =>
+    !isPanelOpen() &&
+    isFeedShaped(
+      window.innerWidth,
+      window.innerHeight,
+      video.videoWidth,
+      video.videoHeight,
+    );
+
+  const recognizer = createRecognizer(
+    surface,
+    {
+      tap: () => {
+        if (isPanelOpen()) {
+          closePanels();
+          return;
+        }
+        setChromeVisible(chrome.hasAttribute('hidden'));
+      },
+      multiTap: ({ zone, x, y }) => {
+        if (isPanelOpen()) {
+          closePanels();
+          return;
+        }
+        const seconds = SIDE_SKIP_SECONDS[zone];
+        if (seconds === undefined) {
+          setChromeVisible(chrome.hasAttribute('hidden'));
+          return;
+        }
+        skip(seconds);
+        skipFeedback.show(seconds, x, y);
+      },
+      holdStart: ({ zone }) => {
+        const isForward = zone === ZONE.HOLD_RIGHT;
+        startScrub(isForward ? 1 : -1);
+        showToast(isForward ? '2x ▶▶' : '◀◀ 2x');
+      },
+      holdEnd: () => stopScrub(),
+      dragStart: ({ zone }) => {
+        setChromeVisible(true);
+        dragTargets[zone]?.start();
+      },
+      dragMove: (detail) => dragTargets[detail.zone]?.move(detail),
+      dragEnd: ({ zone }) => dragTargets[zone]?.end(),
+      pinchStart: () => {
+        pinchBase = visuals.beginPinch();
+      },
+      pinchMove: ({ scale }) => visuals.pinchTo(pinchBase * scale),
+      pinchEnd: () => visuals.endPinch(),
+      swipe: ({ direction }) => onFeedStep(direction),
     },
-    multiTap: ({ zone, count }) => {
-      if (isPanelOpen()) {
-        closePanels();
-        return;
-      }
-      const steps = count - 1;
-      if (zone === ZONE.HOLD_LEFT) skip(-steps * SKIP_BACK_SECONDS);
-      else if (zone === ZONE.HOLD_RIGHT) skip(steps * SKIP_FORWARD_SECONDS);
-      else setChromeVisible(chrome.hasAttribute('hidden'));
-    },
-    holdStart: ({ zone }) => {
-      const isForward = zone === ZONE.HOLD_RIGHT;
-      startScrub(isForward ? 1 : -1);
-      showToast(isForward ? '2x ▶▶' : '◀◀ 2x');
-    },
-    holdEnd: () => stopScrub(),
-    dragStart: ({ zone }) => {
-      setChromeVisible(true);
-      dragTargets[zone]?.start();
-    },
-    dragMove: (detail) => dragTargets[detail.zone]?.move(detail),
-    dragEnd: ({ zone }) => dragTargets[zone]?.end(),
-    pinchStart: () => {
-      pinchBase = visuals.beginPinch();
-    },
-    pinchMove: ({ scale }) => visuals.pinchTo(pinchBase * scale),
-    pinchEnd: () => visuals.endPinch(),
-  });
+    { canSwipe },
+  );
 
   buttons.play = buildButton(
     'Play or pause',
@@ -300,7 +347,7 @@ export const createOverlay = ({
     buildSkipButton(SKIP_FORWARD_SECONDS),
   ]);
 
-  buttons.colour = buildButton('Colour', ICON.colour, () => {
+  buttons.colour = buildButton('Colour', buildPaletteIcon(), () => {
     menu.close();
     buttons.menu.setAttribute('aria-pressed', 'false');
     colorPanel.toggle();
@@ -437,7 +484,6 @@ export const createOverlay = ({
       colorPanel.setValue(key, settings[key]);
     }
     applyWarmth(settings.warmth);
-    cueBox.style.setProperty('--cue-scale', String(settings.subtitleScale));
   };
 
   // Black bars cropped from the start; metadata may not have arrived yet. The
@@ -463,15 +509,28 @@ export const createOverlay = ({
 
   restoreSettings();
   fillWhenReady();
-  shadow.append(surface, cueBox, chrome, toast, filePicker);
+  // Kept as a list so the overlay can take itself off the screen again: the
+  // shadow root outlives it when a feed moves on to its next video.
+  const roots = [
+    surface,
+    ...skipFeedback.roots,
+    cueBox,
+    chrome,
+    toast,
+    filePicker,
+  ];
+  shadow.append(...roots);
   setChromeVisible(true);
 
   return {
     relayout: () => visuals.relayout(),
     repin: () => visuals.repin(),
+    notify: (text) => showToast(text, HINT_MS),
     destroy: () => {
+      for (const node of roots) node.remove();
       recognizer.destroy();
       seekBar.destroy();
+      skipFeedback.destroy();
       tracks.destroy();
       stopScrub();
       if (chromeTimer !== null) clearTimeout(chromeTimer);

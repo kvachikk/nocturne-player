@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.7.0][] - 2026-09-23
+
+### Added
+
+- **Swipe up for the next short video.** With the phone held upright and an
+  upright video on screen — TikTok, Reels, Shorts — a swipe up moves on to the
+  next video and a swipe down goes back, without leaving the player. The swipe
+  scrolls the site's own feed, so the site loads and counts the next video as
+  it would for a swipe of its own. On a landscape film, or with the phone on
+  its side, a vertical swipe does nothing, as before.
+- **Double-tap feedback on the side you tapped.** The side lights up as a
+  half-moon with arrows running the way the film is going and the seconds the
+  run has covered, in place of a label in the middle of the screen.
+
+### Changed
+
+- **The player no longer turns the screen to landscape.** It opens in the
+  position the phone is held in and follows it from there. Forcing landscape
+  put every upright video on its side the moment the player opened.
+- **Every tap of a double-tap run seeks at once.** From the second tap on, the
+  jump happens the moment the finger lifts instead of a quarter of a second
+  later, and a tap that lands mid-seek counts from where that seek is going.
+- **The colour button is drawn as a painter's palette.** The old outline read
+  as a blank shape.
+
+### Removed
+
+- **The subtitle size, subtitle sync and fullscreen rows of the settings
+  sheet.** None of them changed the film itself. Subtitles are drawn at their
+  default size, and the player always takes the screen.
+
 ## [0.6.0][] - 2026-08-16
 
 ### Changed
@@ -253,7 +284,8 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.6.0...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.7.0
 [0.6.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.6.0
 [0.5.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.5.0
 [0.4.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.4.0

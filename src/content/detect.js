@@ -62,6 +62,13 @@ const pickPrimary = (videos) => {
   return best;
 };
 
+// A one-off answer for code that needs the video on screen right now, rather
+// than a watch on it.
+export const findPrimaryVideo = () => {
+  const playable = Array.from(collectVideos()).filter(isPlayable);
+  return pickPrimary(playable);
+};
+
 export const createVideoWatcher = (onPrimaryChange) => {
   const playable = new Set();
   let primary = null;

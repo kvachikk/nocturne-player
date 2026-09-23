@@ -46,10 +46,20 @@ when you paused to look at something.
 
 **Hold for 2x** — hold the right zone to play at double speed, hold the left
 zone to rewind. Double-tap the right zone to jump 10 seconds forward, the left
-one to step 5 seconds back.
+one to step 5 seconds back; keep tapping to go further. The side you tapped
+lights up with the seconds the run has covered.
 
 **Pinch to zoom** — the picture fills the screen from the start, with no black
 bars; pinch to go back to the full frame and it snaps cleanly between the two.
+
+**Swipe through short videos** — on an upright video with the phone held
+upright, the way TikTok, Reels and Shorts are watched, swipe up for the next
+video and down for the one before, without leaving the player. The player
+scrolls the site's own feed, so the site loads and plays the next video exactly
+as it would for its own swipe.
+
+**Follows the phone** — the player opens in whatever position the phone is
+held in, and turns with it. An upright video stays upright.
 
 **Night Light** — warms the picture to a comfortable amber for watching in the
 dark, with adjustable intensity.
@@ -58,7 +68,6 @@ dark, with adjustable intensity.
 
 **Subtitles** — the site's own text tracks, the captions a player like
 YouTube's paints for itself, or an `.srt` / `.vtt` file from your phone.
-Adjustable size and a sync offset for when the subtitles drift.
 
 **Quality** — the first row of the sheet: pick the rung of the ladder rather
 than letting the site choose for you. Works with `<source>` lists, YouTube,
@@ -143,13 +152,15 @@ These are platform limits, not oversights:
   to the device volume.
 - **Rewind is not "negative 2x".** `playbackRate` cannot go below zero, so
   holding the left zone seeks backwards continuously at roughly 2x instead.
-- **Landscape lock is best-effort.** Gecko may refuse the request; the player
-  carries on without it.
+- **Swiping through a feed depends on how the site builds it.** The player
+  scrolls the column the video sits in and waits for the next video to start.
+  A feed that scrolls a page at a time works; one that only moves on for its
+  own touch handlers does not, and the player then stays on the current video
+  and says so.
 - **Android asks for a second swipe to leave a fullscreen app.** That is the
   system's sticky-immersive behaviour, not something a page can turn off. The
-  player no longer asks Gecko to hide the navigation UI, and the settings sheet
-  has a **Fullscreen** switch: turn it off and the player runs as an overlay,
-  which leaves the ordinary single swipe home.
+  player no longer asks Gecko to hide the navigation UI, which is the request
+  that turned it on.
 
 ## Install
 
