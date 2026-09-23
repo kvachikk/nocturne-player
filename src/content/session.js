@@ -137,29 +137,16 @@ const requestFullscreen = async (element) => {
   }
 };
 
-const lockLandscape = async () => {
-  try {
-    await screen.orientation.lock('landscape');
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const unlockOrientation = () => {
-  try {
-    screen.orientation.unlock();
-  } catch {
-    // Never surfaced: the lock is a nicety, not a requirement.
-  }
-};
-
 // Losing fullscreen is how the user leaves the player, and it is also how
 // Android announces that it is taking the video into a floating window. The two
 // look identical at the moment they happen and only differ a beat later, when
 // an app that has gone into the background is no longer the focused one.
 const isBackgrounded = () => document.hidden || !document.hasFocus();
 
+// The screen is left to follow the phone. Locking it to landscape turned an
+// upright TikTok or Reels video on its side the moment the player opened, and
+// a film shot wide is one turn of the wrist away, which Android offers even
+// with auto-rotate switched off.
 export const createSession = (video, { onExit, settings, onPersist }) => {
   const state = captureVideoState(video);
   const playerHost = findApiAncestor(video, PLAYER_API_MARKERS);
@@ -171,7 +158,6 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
   const timers = new Set();
 
   let isActive = false;
-  let isOrientationLocked = false;
   let styleGuard = null;
   let pinnedStyle = null;
   let repinCount = 0;
@@ -272,9 +258,6 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     for (const undo of teardown) undo();
     teardown.length = 0;
 
-    if (isOrientationLocked) unlockOrientation();
-    isOrientationLocked = false;
-
     if (document.fullscreenElement === stage) {
       document.exitFullscreen().catch(() => {});
     }
@@ -327,20 +310,11 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
     });
   };
 
-  const applyLandscape = async () => {
-    if (!settings.isAutoLandscapeOn) return;
-    const isLocked = await lockLandscape();
-    if (isLocked) isOrientationLocked = true;
-  };
-
   const restoreFullscreen = () => {
     if (document.fullscreenElement === stage) return;
     // Gecko may refuse this without a fresh gesture. The stage covers the
     // viewport on its own, so the player stays usable either way.
-    requestFullscreen(stage).then((isOn) => {
-      if (isOn) applyLandscape();
-      scheduleRelayout();
-    });
+    requestFullscreen(stage).then(scheduleRelayout);
   };
 
   const watchForReturn = () => {
@@ -396,8 +370,7 @@ export const createSession = (video, { onExit, settings, onPersist }) => {
 
     // The button that opens the player is drawn as a fullscreen icon, so it
     // takes the screen, every time.
-    const isOn = await requestFullscreen(stage);
-    if (isOn) await applyLandscape();
+    await requestFullscreen(stage);
     scheduleRelayout();
     return true;
   };
