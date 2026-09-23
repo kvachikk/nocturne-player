@@ -259,7 +259,7 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
 
   // Takes one video out of the page, puts it on the stage with the controls
   // over it, and returns what is needed to hand it back exactly as it was.
-  const show = (video, { shouldPlay }) => {
+  const show = (video, { shouldPlay, isChromeShown }) => {
     const state = captureVideoState(video);
     const playerHost = findApiAncestor(video, PLAYER_API_MARKERS);
     const anchor = document.createComment('nocturne-player');
@@ -319,6 +319,7 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
       onPersist,
       playerHost,
       onFeedStep: (direction) => actions.step(direction),
+      isChromeShown,
     });
 
     own.later(() => {
@@ -392,7 +393,9 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
       exit();
       return;
     }
-    shown = show(target, { shouldPlay: true });
+    // A swipe is a request for the next video, not for the controls: it comes
+    // up the way the feed shows it, with nothing drawn over the picture.
+    shown = show(target, { shouldPlay: true, isChromeShown: false });
     if (next === null) shown.notify('No more videos this way');
     scheduleRelayout();
   };
@@ -445,7 +448,10 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
     isActive = true;
 
     openStage();
-    shown = show(firstVideo, { shouldPlay: !firstVideo.paused });
+    shown = show(firstVideo, {
+      shouldPlay: !firstVideo.paused,
+      isChromeShown: true,
+    });
     watchForReturn();
 
     // The button that opens the player is drawn as a fullscreen icon, so it

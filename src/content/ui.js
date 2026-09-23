@@ -117,6 +117,7 @@ export const createOverlay = ({
   onPersist,
   playerHost,
   onFeedStep,
+  isChromeShown = true,
 }) => {
   const surface = el('div', { class: 'layer surface' });
   const scrim = el('div', { class: 'layer scrim' });
@@ -466,10 +467,14 @@ export const createOverlay = ({
   });
 
   // Only the path data changes, so swapping play for pause cannot make the
-  // button flicker or shift.
+  // button flicker or shift. A pause brings the controls up, since the next
+  // thing wanted is usually one of them; a start only restarts their idle
+  // timer if they are already up. A feed starts every video it moves on to,
+  // and that is no reason to cover the picture.
   const handlePlaybackChange = () => {
     playPath.setAttribute('d', video.paused ? ICON.play : ICON.pause);
-    setChromeVisible(true);
+    const isChromeHidden = chrome.hasAttribute('hidden');
+    if (video.paused || !isChromeHidden) setChromeVisible(true);
   };
   video.addEventListener('pause', handlePlaybackChange);
   video.addEventListener('play', handlePlaybackChange);
@@ -520,7 +525,7 @@ export const createOverlay = ({
     filePicker,
   ];
   shadow.append(...roots);
-  setChromeVisible(true);
+  setChromeVisible(isChromeShown);
 
   return {
     relayout: () => visuals.relayout(),
