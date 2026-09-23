@@ -1,4 +1,5 @@
 import { hitTest, isDragZone, isHoldZone, ZONE } from './zones.js';
+import { isVerticalMove, readSwipe } from './swipe.js';
 
 const HOLD_DELAY_MS = 350;
 const MULTI_TAP_WINDOW_MS = 260;
@@ -14,6 +15,7 @@ const MODE = {
   DRAG: 'drag',
   HOLD: 'hold',
   PINCH: 'pinch',
+  SWIPE: 'swipe',
   ABANDONED: 'abandoned',
 };
 
@@ -23,7 +25,14 @@ const distanceBetween = (first, second) => {
   return Math.hypot(dx, dy);
 };
 
-export const createRecognizer = (surface, handlers) => {
+// `canSwipe` is asked at the moment a finger starts to travel, not once up
+// front: the phone may have been turned, or the feed moved on to a film of a
+// different shape, since the player opened.
+export const createRecognizer = (
+  surface,
+  handlers,
+  { canSwipe = () => false } = {},
+) => {
   const pointers = new Map();
 
   let mode = MODE.IDLE;
@@ -144,12 +153,21 @@ export const createRecognizer = (surface, handlers) => {
       handlePinchMove();
       return;
     }
-    if (mode === MODE.ABANDONED || mode === MODE.HOLD) return;
+    const isSettled =
+      mode === MODE.ABANDONED || mode === MODE.HOLD || mode === MODE.SWIPE;
+    if (isSettled) return;
 
     if (mode === MODE.PENDING) {
-      const travelled = Math.hypot(point.x - anchor.x, point.y - anchor.y);
-      if (travelled < MOVE_TOLERANCE_PX) return;
+      const dx = point.x - anchor.x;
+      const dy = point.y - anchor.y;
+      if (Math.hypot(dx, dy) < MOVE_TOLERANCE_PX) return;
       clearHoldTimer();
+      // Checked before the zones: a flick up is the same gesture wherever on
+      // the picture it starts, the seek band and the side boxes included.
+      if (isVerticalMove(dx, dy) && canSwipe()) {
+        mode = MODE.SWIPE;
+        return;
+      }
       if (!isDragZone(anchor.zone)) {
         mode = MODE.ABANDONED;
         return;
@@ -172,6 +190,12 @@ export const createRecognizer = (surface, handlers) => {
     anchor.lastY = point.y;
   };
 
+  const finishSwipe = (event) => {
+    const point = localPoint(event);
+    const direction = readSwipe(point.y - anchor.y, point.height);
+    if (direction !== null) emit('swipe', { direction });
+  };
+
   const handleUp = (event) => {
     if (!pointers.has(event.pointerId)) return;
     pointers.delete(event.pointerId);
@@ -187,6 +211,7 @@ export const createRecognizer = (surface, handlers) => {
     clearHoldTimer();
     if (mode === MODE.DRAG) emit('dragEnd', { zone: anchor.zone });
     else if (mode === MODE.HOLD) emit('holdEnd', { zone: anchor.zone });
+    else if (mode === MODE.SWIPE) finishSwipe(event);
     else if (mode === MODE.PENDING) registerTap(anchor.zone, anchor);
     mode = MODE.IDLE;
   };
