@@ -5,11 +5,15 @@ const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 // A row of chips whose contents are repainted rather than rebuilt, because a
 // streaming site only learns what it can offer after the film has started and
 // the sheet has to be able to say so the next time it opens.
-const buildChipRow = (label) => {
+// Each row is a section the way a settings sheet on iOS draws one: a quiet
+// heading over a segmented control, with the choice that is on raised out of
+// the track.
+const buildChipRow = (label, extra = []) => {
   const chips = el('div', { class: 'chips' });
   const row = el('div', { class: 'menu-row' }, [
     el('span', { class: 'menu-label', text: label }),
     chips,
+    ...extra,
   ]);
   return { row, chips };
 };
@@ -45,15 +49,32 @@ const paintChips = (holder, options, onSelect) => {
 
 const buildNote = (text) => el('span', { class: 'menu-note', text });
 
-const buildToggle = (label, isOn, onToggle) => {
-  const chip = el('button', { class: 'chip', type: 'button', text: label });
-  chip.setAttribute('aria-pressed', String(isOn));
-  chip.addEventListener('click', () => {
-    const next = chip.getAttribute('aria-pressed') !== 'true';
-    chip.setAttribute('aria-pressed', String(next));
+// A list cell with a switch at its end, rather than a chip that has to be
+// read twice to tell whether it is on.
+const buildToggleCell = (label, isOn, onToggle) => {
+  const cell = el('button', { class: 'menu-cell', type: 'button' }, [
+    el('span', { class: 'menu-cell-label', text: label }),
+    el('span', { class: 'switch', 'aria-hidden': 'true' }),
+  ]);
+  cell.setAttribute('role', 'switch');
+  cell.setAttribute('aria-checked', String(isOn));
+  cell.addEventListener('click', () => {
+    const next = cell.getAttribute('aria-checked') !== 'true';
+    cell.setAttribute('aria-checked', String(next));
     onToggle(next);
   });
-  return chip;
+  return cell;
+};
+
+const buildActionCell = (label, onClick) => {
+  const cell = el('button', { class: 'menu-cell', type: 'button' }, [
+    el('span', { class: 'menu-cell-label', text: label }),
+    el('svg', { class: 'menu-cell-icon', viewBox: '0 0 24 24' }, [
+      el('path', { d: 'M9 5l7 7-7 7' }),
+    ]),
+  ]);
+  cell.addEventListener('click', onClick);
+  return cell;
 };
 
 export const createMenu = ({
@@ -76,7 +97,17 @@ export const createMenu = ({
   );
   setSpeed(video.playbackRate);
 
-  const subtitleRow = buildChipRow('Subtitles');
+  const loadCell = buildActionCell('Load .srt / .vtt file', onPickFile);
+  const nativeCell = buildToggleCell(
+    'Native rendering',
+    tracks.isNative(),
+    () => {
+      tracks.setNative(!tracks.isNative());
+    },
+  );
+  const subtitleRow = buildChipRow('Subtitles', [
+    el('div', { class: 'menu-cells' }, [loadCell, nativeCell]),
+  ]);
   let setSubtitle = () => {};
 
   const paintSubtitles = () => {
@@ -129,17 +160,6 @@ export const createMenu = ({
     'The site would not change the track',
   );
 
-  const loadButton = el('button', {
-    class: 'chip',
-    type: 'button',
-    text: 'Load .srt / .vtt',
-  });
-  loadButton.addEventListener('click', onPickFile);
-
-  const nativeToggle = buildToggle('Native', tracks.isNative(), () => {
-    tracks.setNative(!tracks.isNative());
-  });
-
   paintSubtitles();
   qualityRow.chips.replaceChildren(buildNote('Reading the site…'));
   audioRow.row.classList.add('is-empty');
@@ -152,10 +172,6 @@ export const createMenu = ({
     audioRow.row,
     speedRow.row,
     subtitleRow.row,
-    el('div', { class: 'menu-row' }, [
-      el('span', { class: 'menu-label', text: 'Source' }),
-      el('div', { class: 'chips' }, [loadButton, nativeToggle]),
-    ]),
   ]);
 
   // Both lists can grow while the film plays — a caption track switched on in

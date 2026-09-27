@@ -28,8 +28,16 @@ const LADDER = ['480p', '720p', '1080p', 'Авто'];
 test('the site list is offered auto first, then best to worst', () => {
   const adapter = buildPlayerjsAdapter(fakePlayer(LADDER, 'Авто 720p'));
   assert.deepEqual(
-    adapter.list().map((option) => option.label),
+    adapter.list().map((option) => option.id),
     ['Авто', '1080p', '720p', '480p'],
+  );
+});
+
+test('the word the site uses for auto is shown in English', () => {
+  const adapter = buildPlayerjsAdapter(fakePlayer(LADDER, 'Авто 720p'));
+  assert.deepEqual(
+    adapter.list().map((option) => option.label),
+    ['Auto', '1080p', '720p', '480p'],
   );
 });
 
