@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.8.1][] - 2026-09-27
+
+### Fixed
+
+- A tap in the middle shows the controls at once again, so two quick taps
+  there pause, as before 0.8.0. Only side taps wait for a second tap.
+
 ## [0.8.0][] - 2026-09-27
 
 ### Added
@@ -25,7 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Hold right = the 2x speed setting, with sound, until you let go.
 - Double-tap and hold areas cover the left and right 40% of the screen.
-- A single tap shows the controls after ~0.3 s, waiting for a second tap.
+- A single tap on a side shows the controls after ~0.3 s, waiting for a
+  second tap.
 - Fullscreen opens on the video alone, no controls.
 - Settings sheet: narrower, iOS-style sections, segmented controls, switches.
 - The site's word for auto quality (e.g. "Авто") shows as "Auto".
@@ -312,7 +320,8 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.8.0...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.1
 [0.8.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.0
 [0.7.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.7.0
 [0.6.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.6.0
