@@ -48,14 +48,25 @@ beforeEach(() => {
   mock.timers.enable({ apis: ['setTimeout'] });
 });
 
-test('a lone tap waits for a second before bringing the controls up', () => {
+test('a lone tap on a side waits for a second before showing controls', () => {
   const { events, tapAt } = setUp();
-  tapAt(0.5, 0.4);
+  tapAt(0.8, 0.4);
   assert.deepEqual(events, []);
   mock.timers.tick(400);
   assert.deepEqual(
     events.map((event) => event.name),
     ['tap'],
+  );
+  mock.timers.reset();
+});
+
+test('a tap in the middle acts at once, so a second tap can pause', () => {
+  const { events, tapAt } = setUp();
+  tapAt(0.5, 0.4);
+  tapAt(0.5, 0.4);
+  assert.deepEqual(
+    events.map((event) => event.name),
+    ['tap', 'tap'],
   );
   mock.timers.reset();
 });
@@ -73,11 +84,11 @@ test('a double-tap that is not very quick still seeks, never toggles', () => {
   mock.timers.reset();
 });
 
-test('a first tap that strays onto the middle still counts', () => {
+test('a second tap that strays onto the middle still seeks', () => {
   const { events, tapAt } = setUp();
-  tapAt(0.55, 0.4);
-  mock.timers.tick(200);
   tapAt(0.7, 0.4);
+  mock.timers.tick(200);
+  tapAt(0.55, 0.4);
   mock.timers.tick(1000);
   assert.deepEqual(
     events.map((event) => [event.name, event.zone]),
