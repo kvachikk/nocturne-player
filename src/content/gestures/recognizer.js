@@ -2,7 +2,11 @@ import { hitTest, isDragZone, isHoldZone, ZONE } from './zones.js';
 import { isVerticalMove, readSwipe } from './swipe.js';
 
 const HOLD_DELAY_MS = 350;
-const MULTI_TAP_WINDOW_MS = 260;
+// How long a lone tap waits for a second one before it is taken to mean "show
+// the controls". Every tap waits it out, wherever it lands: acting on the first
+// tap at once is what turned a double-tap that was not quite quick enough into
+// the controls popping up instead of a seek.
+const MULTI_TAP_WINDOW_MS = 320;
 // Once a side is seeking, a tap on it keeps seeking for a little longer than
 // the double-tap window: tapping on to go further is a slower rhythm than the
 // two taps that started it.
@@ -74,24 +78,34 @@ export const createRecognizer = (
     tapCount = 0;
   };
 
+  // Taps in two different zones are never counted together: tapping the left
+  // side in the middle of a run on the right starts a run of its own. A tap
+  // that strays onto the neutral picture between them still counts towards the
+  // run it was part of — a second tap rarely lands exactly where the first did.
+  const startsNewRun = (zone) =>
+    tapCount === 0 ||
+    (zone !== tapZone && zone !== ZONE.DEAD && tapZone !== ZONE.DEAD);
+
   const registerTap = (zone, point) => {
-    // A tap on bare picture acts at once — it only brings the controls up or
-    // puts them away. The side boxes have to wait the window out, because a
-    // second tap there means "seek", not "show the controls".
-    if (zone === ZONE.DEAD) {
-      emit('tap', { zone });
-      return;
+    if (startsNewRun(zone)) {
+      tapCount = 0;
+      tapZone = zone;
+    } else if (zone !== ZONE.DEAD) {
+      tapZone = zone;
     }
-    if (tapZone !== zone) tapCount = 0;
-    tapZone = zone;
     tapCount += 1;
     if (tapTimer !== null) clearTimeout(tapTimer);
 
     // In the side boxes every tap from the second on is a seek, sent the moment
     // the finger lifts. Waiting the window out first put a quarter of a second
     // between the tap and the jump, on top of whatever the seek itself takes.
-    if (tapCount >= 2 && isHoldZone(zone)) {
-      emit('multiTap', { zone, count: tapCount, x: point.x, y: point.y });
+    if (tapCount >= 2 && isHoldZone(tapZone)) {
+      emit('multiTap', {
+        zone: tapZone,
+        count: tapCount,
+        x: point.x,
+        y: point.y,
+      });
       tapTimer = setTimeout(flushTaps, SEEK_RUN_MS);
       return;
     }

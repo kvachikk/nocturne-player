@@ -34,6 +34,19 @@ test('the middle of the picture is not a pause button', () => {
   assert.equal(ZONE.PAUSE, undefined);
 });
 
+test('the sides are wide, so a sloppy second tap still lands on one', () => {
+  for (const xRatio of [0.02, 0.2, 0.39]) {
+    assert.equal(zoneAt(xRatio, 0.15), ZONE.HOLD_LEFT);
+    assert.equal(zoneAt(xRatio, 0.7), ZONE.HOLD_LEFT);
+  }
+  for (const xRatio of [0.61, 0.8, 0.98]) {
+    assert.equal(zoneAt(xRatio, 0.15), ZONE.HOLD_RIGHT);
+    assert.equal(zoneAt(xRatio, 0.7), ZONE.HOLD_RIGHT);
+  }
+  assert.equal(zoneAt(0.2, 0.05), ZONE.DEAD);
+  assert.equal(zoneAt(0.8, 0.05), ZONE.DEAD);
+});
+
 test('the hold boxes stay clear of the seek band', () => {
   assert.equal(zoneAt(0.23, 0.4), ZONE.HOLD_LEFT);
   assert.equal(zoneAt(0.8, 0.4), ZONE.HOLD_RIGHT);
