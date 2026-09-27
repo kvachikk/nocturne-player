@@ -2,6 +2,7 @@ import { createOverlay } from './ui.js';
 import { createShadowHost, el, pinStyle } from './shell.js';
 import { findApiAncestor } from './video/pageapi.js';
 import { findFeedScroller, stepFeed, waitForNextVideo } from './video/feed.js';
+import { lockPageFullscreen } from './fullscreenlock.js';
 import playerCss from './player.css';
 
 // The names a site's own player hangs off the element wrapping the video.
@@ -22,6 +23,14 @@ const EMPTIED_GRACE_MS = 6000;
 const NETWORK_EMPTY = 0;
 const RECOVER_DELAY_MS = 250;
 const MAX_REPINS = 240;
+// Below this share of the screen, a player that has lost fullscreen is playing
+// in the box the site gave it — an embedded player's frame — rather than over
+// the whole page, where it would still want its full set of controls.
+const COMPACT_SCREEN_SHARE = 0.6;
+// Turning the phone can cost the stage its fullscreen — the browser re-laying
+// the screen out, or a site that reached it before the lock did. Losing it
+// this close to a turn is not the user backing out.
+const TURN_GRACE_MS = 1500;
 
 const STAGE_STYLE = {
   position: 'fixed',
@@ -143,6 +152,19 @@ const requestFullscreen = async (element) => {
 // an app that has gone into the background is no longer the focused one.
 const isBackgrounded = () => document.hidden || !document.hasFocus();
 
+const readOrientation = () => {
+  const type = window.screen.orientation?.type;
+  if (type) return type.split('-')[0];
+  return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+};
+
+const isSmallerThanScreen = () => {
+  const screenArea = window.screen.width * window.screen.height;
+  if (screenArea === 0) return false;
+  const viewArea = window.innerWidth * window.innerHeight;
+  return viewArea < screenArea * COMPACT_SCREEN_SHARE;
+};
+
 // Everything a part of the player hooks into the page is undone together. The
 // stage keeps one scope for as long as the player is open; each video it shows
 // gets a scope of its own, which goes when a feed moves on to the next one.
@@ -242,6 +264,21 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
   let shown = null;
   let lastVideo = firstVideo;
   let relayoutFrame = 0;
+  let unlockPageFullscreen = () => {};
+  let lastTurnAt = -Infinity;
+  let heldOrientation = readOrientation();
+
+  const readScreen = () => {
+    const isFullscreen = document.fullscreenElement === stage;
+    return {
+      isFullscreen,
+      isCompact: !isFullscreen && isSmallerThanScreen(),
+    };
+  };
+
+  const isTurning = () =>
+    performance.now() - lastTurnAt < TURN_GRACE_MS ||
+    readOrientation() !== heldOrientation;
 
   const relayout = () => {
     relayoutFrame = 0;
@@ -255,7 +292,7 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
 
   // Late-bound: showing a video needs the way out and the way to the next
   // video, and both of those need to be able to show one.
-  const actions = { exit: () => {}, step: () => {} };
+  const actions = { exit: () => {}, step: () => {}, fullscreen: () => {} };
 
   // Takes one video out of the page, puts it on the stage with the controls
   // over it, and returns what is needed to hand it back exactly as it was.
@@ -319,8 +356,10 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
       onPersist,
       playerHost,
       onFeedStep: (direction) => actions.step(direction),
+      onFullscreen: () => actions.fullscreen(),
       isChromeShown,
     });
+    overlay.setScreen(readScreen());
 
     own.later(() => {
       if (shouldPlay && video.paused) video.play().catch(() => {});
@@ -342,8 +381,10 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
       video,
       release,
       notify: (text) => overlay.notify(text),
+      showControls: () => overlay.showControls(),
       relayout: () => {
         pin();
+        overlay.setScreen(readScreen());
         overlay.relayout();
       },
     };
@@ -356,6 +397,7 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
     if (relayoutFrame !== 0) cancelAnimationFrame(relayoutFrame);
     relayoutFrame = 0;
     scope.dispose();
+    unlockPageFullscreen();
 
     if (document.fullscreenElement === stage) {
       document.exitFullscreen().catch(() => {});
@@ -402,6 +444,9 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
 
   actions.exit = exit;
   actions.step = step;
+  actions.fullscreen = () => {
+    requestFullscreen(stage).then(scheduleRelayout);
+  };
 
   const openStage = () => {
     stage.dataset.nocturnePlayer = '';
@@ -419,11 +464,28 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
   };
 
   const watchForReturn = () => {
+    const noteTurn = () => {
+      lastTurnAt = performance.now();
+      scheduleRelayout();
+    };
+
+    // A turn keeps the player open, out of fullscreen, with its controls up:
+    // the fullscreen button is then one tap away. Gecko will not hand the
+    // screen back without a tap, so the player cannot take it back itself.
     scope.listen(document, 'fullscreenchange', () => {
-      if (document.fullscreenElement === stage) return;
+      scheduleRelayout();
+      if (document.fullscreenElement === stage) {
+        heldOrientation = readOrientation();
+        return;
+      }
       scope.later(() => {
         if (!isActive) return;
         if (isBackgrounded()) return;
+        if (isTurning()) {
+          heldOrientation = readOrientation();
+          if (shown) shown.showControls();
+          return;
+        }
         exit();
       }, RECOVER_DELAY_MS);
     });
@@ -440,17 +502,24 @@ export const createSession = (firstVideo, { onExit, settings, onPersist }) => {
     });
 
     scope.listen(window, 'resize', scheduleRelayout);
-    scope.listen(window, 'orientationchange', scheduleRelayout);
+    scope.listen(window, 'orientationchange', noteTurn);
+    if (window.screen.orientation) {
+      scope.listen(window.screen.orientation, 'change', noteTurn);
+    }
   };
 
   const enter = async () => {
     if (isActive) return false;
     isActive = true;
 
+    unlockPageFullscreen = lockPageFullscreen();
     openStage();
+    // The picture first: a film that is playing opens with nothing drawn over
+    // it, and a tap brings the controls up. One that is paused shows them, or
+    // the screen would be a still frame with no hint of what to do next.
     shown = show(firstVideo, {
       shouldPlay: !firstVideo.paused,
-      isChromeShown: true,
+      isChromeShown: firstVideo.paused,
     });
     watchForReturn();
 

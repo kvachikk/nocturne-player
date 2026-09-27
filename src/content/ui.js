@@ -15,8 +15,15 @@ import { isFeedShaped } from './gestures/swipe.js';
 import { ZONE } from './gestures/zones.js';
 
 const CHROME_IDLE_MS = 3000;
-const SCRUB_STEP_SECONDS = 0.2;
-const SCRUB_TICK_MS = 100;
+// Holding a side plays at the speed the sheet's 2x chip sets, forward — and
+// the same speed backward, which no browser plays, so it is stepped instead.
+const HOLD_RATE = 2;
+// Rewinding waits for each step to land before taking the next one. Firing a
+// seek every tenth of a second, as it used to, aborted every seek before the
+// one in flight could paint a frame: on a real film the picture froze and
+// nothing moved until the finger came off.
+const REWIND_SETTLE_MS = 90;
+const REWIND_STALL_MS = 600;
 const TOAST_MS = 900;
 const HINT_MS = 2200;
 // Back is the button that undoes a line of dialogue you missed, forward the
@@ -39,6 +46,7 @@ const ICON = {
     'c2.8 0 5-2.2 5-5C21 6.5 17 3 12 3z',
   menu: 'M4 7h16M4 12h16M4 17h16',
   play: 'M8 5 19 12 8 19z',
+  fullscreen: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
   pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
 };
 
@@ -115,6 +123,7 @@ export const createOverlay = ({
   onPersist,
   playerHost,
   onFeedStep,
+  onFullscreen,
   isChromeShown = true,
 }) => {
   const surface = el('div', { class: 'layer surface' });
@@ -131,7 +140,13 @@ export const createOverlay = ({
 
   // Late-bound: buttons, the recognizer and the track manager all need to refer
   // to things created after them.
-  const buttons = { colour: null, menu: null, play: null };
+  const buttons = {
+    exit: null,
+    colour: null,
+    menu: null,
+    play: null,
+    fullscreen: null,
+  };
   const menuRef = { setSubtitle: () => {} };
   const playlistRef = {
     refresh: () => {},
@@ -162,20 +177,29 @@ export const createOverlay = ({
   const skipFeedback = createSkipFeedback();
 
   let chromeTimer = null;
-  let scrubTimer = null;
   let toastTimer = null;
   let pinchBase = 1;
-  let wasPlayingBeforeScrub = false;
   let skipTarget = null;
+  let releaseHold = null;
 
+  // A duration of null keeps the toast up until hideToast takes it down: the
+  // 2x label stays for as long as the finger does.
   const showToast = (text, duration = TOAST_MS) => {
     toast.textContent = text;
     toast.classList.add('is-visible');
     if (toastTimer !== null) clearTimeout(toastTimer);
+    toastTimer = null;
+    if (duration === null) return;
     toastTimer = setTimeout(() => {
       toastTimer = null;
       toast.classList.remove('is-visible');
     }, duration);
+  };
+
+  const hideToast = () => {
+    if (toastTimer !== null) clearTimeout(toastTimer);
+    toastTimer = null;
+    toast.classList.remove('is-visible');
   };
 
   const applyWarmth = (value) => {
@@ -243,23 +267,63 @@ export const createOverlay = ({
     skipTarget = seek(from + seconds);
   };
 
-  const stopScrub = () => {
-    if (scrubTimer === null) return;
-    clearInterval(scrubTimer);
-    scrubTimer = null;
-    if (wasPlayingBeforeScrub) video.play().catch(() => {});
+  // Exactly what the 2x chip in the sheet does, for as long as the finger is
+  // down, and the speed that was set before comes back when it lifts.
+  const holdForward = () => {
+    const previousRate = video.playbackRate;
+    const wasPaused = video.paused;
+    video.playbackRate = HOLD_RATE;
+    if (wasPaused) video.play().catch(() => {});
+    return () => {
+      video.playbackRate = previousRate;
+      if (wasPaused) video.pause();
+    };
   };
 
-  // Both directions step the clock rather than lean on playbackRate, which
-  // Firefox for Android does not reliably honour. Playback is held still while
-  // stepping, otherwise forward would run at 3x and back at only 1x.
-  const startScrub = (direction) => {
-    stopScrub();
-    wasPlayingBeforeScrub = !video.paused;
+  // Each step is worked out from the time the finger has been down, not added
+  // to the last one, so the picture goes back at 2x however long each seek
+  // takes — a slow stream just shows fewer frames on the way.
+  const holdBack = () => {
+    const wasPlaying = !video.paused;
+    const origin = video.currentTime;
+    const startedAt = performance.now();
+    let timer = null;
+    let isHeld = true;
+
     video.pause();
-    scrubTimer = setInterval(() => {
-      seek(video.currentTime + direction * SCRUB_STEP_SECONDS);
-    }, SCRUB_TICK_MS);
+
+    const step = () => {
+      timer = null;
+      if (!isHeld) return;
+      const elapsed = (performance.now() - startedAt) / 1000;
+      seek(origin - elapsed * HOLD_RATE);
+      // In case the seek never reports back, the next one is not held up by it.
+      timer = setTimeout(step, REWIND_STALL_MS);
+    };
+
+    const handleSeeked = () => {
+      if (!isHeld) return;
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(step, REWIND_SETTLE_MS);
+    };
+
+    video.addEventListener('seeked', handleSeeked);
+    step();
+
+    return () => {
+      isHeld = false;
+      if (timer !== null) clearTimeout(timer);
+      video.removeEventListener('seeked', handleSeeked);
+      if (wasPlaying) video.play().catch(() => {});
+    };
+  };
+
+  const stopHold = () => {
+    if (releaseHold === null) return;
+    const release = releaseHold;
+    releaseHold = null;
+    release();
+    hideToast();
   };
 
   const dragTargets = { [ZONE.SEEK]: seekBar };
@@ -297,11 +361,13 @@ export const createOverlay = ({
         skipFeedback.show(seconds, x, y);
       },
       holdStart: ({ zone }) => {
+        if (isPanelOpen()) return;
+        stopHold();
         const isForward = zone === ZONE.HOLD_RIGHT;
-        startScrub(isForward ? 1 : -1);
-        showToast(isForward ? '2x ▶▶' : '◀◀ 2x');
+        releaseHold = isForward ? holdForward() : holdBack();
+        showToast(isForward ? '2x ▶▶' : '◀◀ 2x', null);
       },
-      holdEnd: () => stopScrub(),
+      holdEnd: () => stopHold(),
       dragStart: ({ zone }) => {
         setChromeVisible(true);
         dragTargets[zone]?.start();
@@ -423,13 +489,34 @@ export const createOverlay = ({
   playlistRef.close = closePlaylistLists;
   playlistRef.refresh();
 
+  buttons.exit = buildButton('Exit player', ICON.exit, () => onExit());
+  buttons.fullscreen = buildButton('Fullscreen', ICON.fullscreen, () => {
+    onFullscreen();
+    setChromeVisible(false);
+  });
+
+  const fullOnly = [buttons.exit, playlistBar, buttons.colour, buttons.menu];
+  for (const node of fullOnly) node.classList.add('is-full-only');
+  buttons.fullscreen.classList.add('is-windowed-only');
+
   topbar.append(
-    buildButton('Exit player', ICON.exit, () => onExit()),
+    buttons.exit,
     playlistBar,
     el('div', { class: 'spacer' }),
     buttons.colour,
     buttons.menu,
+    buttons.fullscreen,
   );
+
+  // Whenever the player is out of fullscreen it offers the way back to it.
+  // Playing in the box the site gave it — an embedded player's frame — it is
+  // too small for the sheets as well, so they and the way out step aside.
+  const setScreen = ({ isFullscreen, isCompact }) => {
+    chrome.toggleAttribute('data-windowed', !isFullscreen);
+    if (chrome.hasAttribute('data-compact') === isCompact) return;
+    chrome.toggleAttribute('data-compact', isCompact);
+    if (isCompact && isPanelOpen()) closePanels();
+  };
 
   chrome.append(
     scrim,
@@ -469,8 +556,11 @@ export const createOverlay = ({
   // thing wanted is usually one of them; a start only restarts their idle
   // timer if they are already up. A feed starts every video it moves on to,
   // and that is no reason to cover the picture.
+  // A hold pauses and resumes the film on its own account, and that is no
+  // reason to bring the controls up over the picture it is running through.
   const handlePlaybackChange = () => {
     playPath.setAttribute('d', video.paused ? ICON.play : ICON.pause);
+    if (releaseHold !== null) return;
     const isChromeHidden = chrome.hasAttribute('hidden');
     if (video.paused || !isChromeHidden) setChromeVisible(true);
   };
@@ -517,13 +607,15 @@ export const createOverlay = ({
     relayout: () => visuals.relayout(),
     repin: () => visuals.repin(),
     notify: (text) => showToast(text, HINT_MS),
+    setScreen,
+    showControls: () => setChromeVisible(true),
     destroy: () => {
       for (const node of roots) node.remove();
       recognizer.destroy();
       seekBar.destroy();
       skipFeedback.destroy();
       tracks.destroy();
-      stopScrub();
+      stopHold();
       if (chromeTimer !== null) clearTimeout(chromeTimer);
       if (toastTimer !== null) clearTimeout(toastTimer);
       for (const timer of chapterTimers) clearTimeout(timer);

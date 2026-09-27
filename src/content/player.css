@@ -231,6 +231,17 @@
   filter: var(--icon-shadow);
 }
 
+/* Out of fullscreen there is a way back to it; in the small box the site gave
+   the video, the sheets and the way out step aside to make room. */
+.chrome:not([data-windowed]) .is-windowed-only,
+.chrome[data-compact] .is-full-only {
+  display: none;
+}
+
+.chrome[data-compact] .topbar {
+  padding: 6px 8px;
+}
+
 .surface {
   position: absolute;
   inset: 0;
@@ -491,16 +502,21 @@
 }
 
 /* Kept clear of the volume strip that runs down the right edge. */
+/* The dark material of the iOS sheets before Liquid Glass: a deep, slightly
+   see-through grey with a heavy blur and the colour behind pushed up through
+   it, a hairline rim to lift it off a dark scene, and a soft shadow. */
 .panel {
   position: absolute;
   top: 60px;
   right: max(30px, env(safe-area-inset-right));
   width: min(330px, 50vw);
   padding: 10px 12px;
-  border-radius: 18px;
-  background: rgba(20, 19, 26, 0.66);
-  box-shadow: var(--shadow-deep);
-  backdrop-filter: blur(22px);
+  border-radius: 14px;
+  background: rgba(30, 30, 32, 0.72);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.12),
+    0 16px 48px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(30px) saturate(180%);
   display: none;
   flex-direction: column;
   gap: 6px;
@@ -583,11 +599,13 @@
   font-size: 13px;
 }
 
-/* Anchored under the button that opens it, not stretched across the film. */
+/* Anchored under the button that opens it, not stretched across the film —
+   and narrow, a column of sections rather than a sheet of labels and chips. */
 .menu {
   right: max(30px, env(safe-area-inset-right));
   left: auto;
-  width: min(560px, 68vw);
+  width: min(340px, 54vw);
+  padding: 12px 12px 14px;
   /* Ends where the seek bar begins: the sheet is anchored 60px down and the
    * bar rides 12vh off the bottom, so the two can never meet. Viewport units
    * rather than percentages — the sheet's parent is a stretched box with no
@@ -595,72 +613,172 @@
   max-height: calc(100vh - 96px - 18vh);
   overflow-y: auto;
   overscroll-behavior: contain;
-  gap: 0;
+  scrollbar-width: none;
+  gap: 14px;
 }
 
-/* A row is as tall as its chips, however many lines they take: the quality
- * ladder runs to nine rungs and wraps on a phone held sideways, and a row with
- * a fixed height would have left it lying across the row beneath. */
+/* A section is as tall as its segments, however many lines they take: the
+ * quality ladder runs to nine rungs and wraps. */
 .menu-row {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 7px 0;
+  flex-direction: column;
+  gap: 7px;
 }
 
-/* A hairline instead of a gap: with rows of different heights, a line is what
- * makes it plain which chips belong to which label. */
 .menu-row.is-empty {
   display: none;
 }
 
-.menu-row + .menu-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
+/* The grouped-list heading: small, spaced capitals in the secondary grey. */
 .menu-label {
-  flex: none;
-  width: 84px;
-  padding-top: 9px;
-  font-size: 13px;
+  padding-left: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(235, 235, 245, 0.6);
 }
 
 .menu-note {
-  font-size: 12px;
-  opacity: 0.7;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: rgba(235, 235, 245, 0.6);
 }
 
+/* A segmented control: one sunken track, the chosen segment raised out of it.
+   Segments share a line and grow to fill it, so a short ladder reads as one
+   control and a long one wraps without leaving a ragged edge. */
 .chips {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  row-gap: 8px;
-  column-gap: 6px;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgba(118, 118, 128, 0.24);
 }
 
 .chip {
-  min-width: 40px;
-  height: 36px;
-  padding: 0 12px;
+  flex: 1 0 auto;
+  min-width: 48px;
+  height: 32px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
-  color: inherit;
+  border-radius: 7px;
+  background: transparent;
+  color: #fff;
   font: inherit;
   font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   transition:
-    background 160ms var(--ease),
+    background 200ms var(--ease),
+    box-shadow 200ms var(--ease),
     transform 200ms var(--ease);
 }
 
 .chip:active {
-  transform: scale(0.94);
+  transform: scale(0.95);
 }
 
 .chip[aria-pressed='true'] {
-  background: rgba(236, 236, 242, 0.9);
-  color: #16151c;
+  background: #636366;
+  font-weight: 600;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.18),
+    0 3px 1px rgba(0, 0, 0, 0.06);
+}
+
+/* Inset grouped cells for the things that are actions or switches rather than
+   one choice out of many. */
+.menu-cells {
+  margin-top: 3px;
+  border-radius: 10px;
+  background: rgba(118, 118, 128, 0.18);
+  overflow: hidden;
+}
+
+.menu-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px 0 14px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms var(--ease);
+}
+
+/* The separator starts where the text does, as it does in an iOS list. */
+.menu-cell + .menu-cell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  height: 0.5px;
+  background: rgba(84, 84, 88, 0.65);
+}
+
+.menu-cell:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menu-cell-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-cell-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: rgba(235, 235, 245, 0.3);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The iOS switch: a pill that turns green, a white knob that slides across. */
+.switch {
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.32);
+  transition: background 220ms var(--ease);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.15),
+    0 3px 1px rgba(0, 0, 0, 0.06);
+  transition: transform 260ms var(--ease);
+}
+
+.menu-cell[aria-checked='true'] .switch {
+  background: #34c759;
+}
+
+.menu-cell[aria-checked='true'] .switch::after {
+  transform: translateX(20px);
 }
 
 .file-picker {

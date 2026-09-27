@@ -368,10 +368,12 @@ export const buildPlayerjsAdapter = (instance) => ({
   // only one this player answers to.
   hasAuto: false,
   diagnose: () => `${listQualities(instance).length} in the site's list`,
+  // The site's word for auto is kept as the id, since it is the one the
+  // player answers to, but the chip says it in the sheet's own language.
   list: () =>
     orderLabels(listQualities(instance)).map((label) => ({
       id: label,
-      label,
+      label: AUTO_WORDS.test(label) ? 'Auto' : label,
     })),
   current: () =>
     matchLabel(listQualities(instance), call(instance, 'api', 'quality')),
