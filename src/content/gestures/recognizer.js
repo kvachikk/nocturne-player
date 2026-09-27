@@ -2,10 +2,9 @@ import { hitTest, isDragZone, isHoldZone, ZONE } from './zones.js';
 import { isVerticalMove, readSwipe } from './swipe.js';
 
 const HOLD_DELAY_MS = 350;
-// How long a lone tap waits for a second one before it is taken to mean "show
-// the controls". Every tap waits it out, wherever it lands: acting on the first
-// tap at once is what turned a double-tap that was not quite quick enough into
-// the controls popping up instead of a seek.
+// How long a lone tap on a side waits for a second one before it is taken to
+// mean "show the controls". Acting on it at once turned a double-tap that was
+// not quite quick enough into the controls popping up instead of a seek.
 const MULTI_TAP_WINDOW_MS = 320;
 // Once a side is seeking, a tap on it keeps seeking for a little longer than
 // the double-tap window: tapping on to go further is a slower rhythm than the
@@ -78,19 +77,19 @@ export const createRecognizer = (
     tapCount = 0;
   };
 
-  // Taps in two different zones are never counted together: tapping the left
-  // side in the middle of a run on the right starts a run of its own. A tap
-  // that strays onto the neutral picture between them still counts towards the
-  // run it was part of — a second tap rarely lands exactly where the first did.
-  const startsNewRun = (zone) =>
-    tapCount === 0 ||
-    (zone !== tapZone && zone !== ZONE.DEAD && tapZone !== ZONE.DEAD);
-
+  // The neutral middle has no double-tap, so a tap there acts at once: the
+  // controls come up under the finger and a quick second tap lands on pause.
+  // Only a tap that strays there in the middle of a side run waits, and counts
+  // towards that run — a second tap rarely lands exactly where the first did.
+  // Tapping the other side mid-run starts a run of its own.
   const registerTap = (zone, point) => {
-    if (startsNewRun(zone)) {
+    const isSideRun = tapCount > 0 && isHoldZone(tapZone);
+    if (zone === ZONE.DEAD && !isSideRun) {
+      emit('tap', { zone });
+      return;
+    }
+    if (tapCount === 0 || (zone !== ZONE.DEAD && zone !== tapZone)) {
       tapCount = 0;
-      tapZone = zone;
-    } else if (zone !== ZONE.DEAD) {
       tapZone = zone;
     }
     tapCount += 1;
