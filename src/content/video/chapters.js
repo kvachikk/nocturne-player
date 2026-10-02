@@ -41,7 +41,7 @@ const readStart = (renderer) => {
     const seconds = Number(read(node, 'startTimeSeconds'));
     if (Number.isFinite(seconds)) return seconds;
 
-    let keys = [];
+    let keys;
     try {
       keys = Object.keys(node);
     } catch {
@@ -81,7 +81,7 @@ const collect = (root) => {
       continue;
     }
 
-    let keys = [];
+    let keys;
     try {
       keys = Object.keys(node);
     } catch {
