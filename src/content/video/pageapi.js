@@ -42,7 +42,7 @@ export const read = (object, key) => {
 
 export const call = (object, name, ...args) => {
   if (object === null || typeof object !== 'object') return null;
-  let method = null;
+  let method;
   try {
     method = object[name];
   } catch {
@@ -123,7 +123,7 @@ export const findGlobalMatches = (matchers) => {
   const scope = pageWindow();
   const found = {};
   if (scope === null) return found;
-  let keys = [];
+  let keys;
   try {
     keys = Object.keys(scope);
   } catch {
