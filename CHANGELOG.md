@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.9.0][] - 2026-10-17
+
+### Added
+
+- **Skip intro.** The player learns a series' opening by ear: it compares the
+  start of the episode playing with the last episodes it heard, and keeps the
+  stretch where the two sound the same. From the next episode on, a **Skip
+  intro** button comes up a second into the opening, wherever it falls, and
+  lands where the story starts. A new opening mid-series is learned the
+  same way. The opening is painted on the seek bar once it is recognised.
+- A switch in the settings sheet turns the listening off, and **Reset
+  settings** in the popup forgets what was learned.
+
+### Notes
+
+- Measured on a phone on three episodes of one series: the opening was
+  learned to within a fifth of a second; the button came up a second into the
+  opening, or three seconds after the player was opened partway through it.
+  No check takes more than a few milliseconds.
+- Only a video the site serves itself is listened to. Web Audio returns
+  silence for a video loaded from another domain without permission, and
+  routing the sound through it would silence the film too.
+
 ## [0.8.2][] - 2026-10-17
 
 ### Changed
@@ -330,7 +353,8 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.8.2...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.9.0
 [0.8.2]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.2
 [0.8.1]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.1
 [0.8.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.0

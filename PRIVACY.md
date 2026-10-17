@@ -21,6 +21,15 @@ appearance, playback preferences, and the list of sites you disabled the player
 on. These are written with the WebExtension `storage.local` API, which keeps
 them **on your device**.
 
+For **Skip intro**, the player also keeps what it learned about openings: a
+coarse picture of the sound — how loud each of 33 pitch bands was, five times
+a second — for the first ten minutes of the last two episodes you watched, and
+for each opening it recognised. It holds no address, no title, no time of
+viewing and no audio: no sound can be rebuilt from it. It is computed and kept
+on your device with `storage.local` and never leaves it. Turn the feature off
+in the player's settings sheet to stop the listening; **Reset settings** in the
+popup erases what was learned.
+
 The extension deliberately does **not** use `storage.sync`, because that would
 copy your settings through a Mozilla account. Uninstalling the extension removes
 everything it stored.

@@ -31,12 +31,16 @@ Works on any site that plays a plain `<video>`, and on YouTube.
 - **Quality, audio track, speed, subtitles** (site tracks or your own
   `.srt` / `.vtt`).
 - **Seasons and episodes** picker, and chapter marks on the seek bar.
+- **Skip intro** — the player learns a series' opening by ear from two
+  episodes, then offers to skip it and marks it on the seek bar.
 
 ## Privacy
 
 - Permissions: `storage` (your settings, on the device) and `activeTab`.
 - No `fetch`, no `XMLHttpRequest`, no remote URLs — a CI check enforces it.
 - Nothing is collected or sent. Works offline. The build is not minified.
+- Skip intro keeps coarse spectra of what it heard, on the device, with no
+  address or title; no sound can be rebuilt from them.
 - It runs on all sites only to find the `<video>`; you can turn it off per
   site in the popup.
 
@@ -50,6 +54,10 @@ See [PRIVACY.md](PRIVACY.md).
 - **Volume** stays on the phone's buttons; the web has no access to it.
 - **Saving a frame** is impossible: Firefox for Android does not let any
   script read a video frame.
+- **Skip intro** needs two episodes to learn an opening and offers to skip it
+  from the third. It listens only to a video the site serves itself (most
+  players, YouTube included); a film loaded from another domain is left
+  alone, since the browser would silence it.
 
 ## Install
 
