@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - The settings button is a gear instead of three bars.
+- Back skips 10 seconds, the same as forward, on the button and on a
+  double-tap on the left.
 - The fullscreen button on an inline video stays visible while the video is
   in view, instead of fading out and waiting for a tap.
 

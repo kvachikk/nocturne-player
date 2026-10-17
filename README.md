@@ -20,8 +20,8 @@ Works on any site that plays a plain `<video>`, and on YouTube.
 ## Features
 
 - **Seek bar** — thick, grab it anywhere; drag away from it to scrub slower.
-- **Double-tap** the right side for +10 s, the left for −5 s. Keep tapping to go
-  further.
+- **Double-tap** the right side for +10 s, the left for −10 s. Keep tapping to
+  go further.
 - **Hold** the right side for 2x, the left to rewind.
 - **Tap** shows or hides the controls. Only the play button pauses.
 - **Pinch** to fill the screen and crop black bars.
