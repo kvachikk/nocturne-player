@@ -17,7 +17,30 @@ no network access.
 
 Works on any site that plays a plain `<video>`, and on YouTube.
 
-## Features
+## Key features
+
+### Skip intro
+
+The player learns a series' opening by ear and offers to skip it — no
+internet, no database of shows, nothing to set up.
+
+- **Episode 1** — it listens.
+- **Episode 2** — it hears the stretch that sounds the same as the episode
+  before, and paints it on the seek bar as it plays.
+- **From episode 3** — **Skip intro** comes up a second into the opening,
+  wherever the opening falls, and lands where the story starts.
+
+A new opening mid-season is learned the same way. Only a coarse spectrum of
+the sound is kept, on the device, with no address or title, and the listening
+can be switched off in the settings sheet.
+
+### Colour
+
+The palette button tunes the picture: **brightness**, **contrast**,
+**saturation**, and a warm **night light** for watching in the dark. The
+choice is remembered for the next film.
+
+## Everything else
 
 - **Seek bar** — thick, grab it anywhere; drag away from it to scrub slower.
 - **Double-tap** the right side for +10 s, the left for −10 s. Keep tapping to
@@ -27,12 +50,9 @@ Works on any site that plays a plain `<video>`, and on YouTube.
 - **Pinch** to fill the screen and crop black bars.
 - **Swipe** up or down through TikTok / Reels / Shorts feeds.
 - **Follows the phone** — portrait or landscape, turning mid-film included.
-- **Colour** — brightness, contrast, saturation, and a warm night light.
 - **Quality, audio track, speed, subtitles** (site tracks or your own
-  `.srt` / `.vtt`).
+  `.srt` / `.vtt`) in the settings sheet.
 - **Seasons and episodes** picker, and chapter marks on the seek bar.
-- **Skip intro** — the player learns a series' opening by ear from two
-  episodes, then offers to skip it and marks it on the seek bar.
 
 ## Privacy
 
