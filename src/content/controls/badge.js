@@ -4,10 +4,11 @@ import badgeCss from './badge.css';
 const SIZE_PX = 44;
 const INSET_PX = 12;
 const MIN_VISIBLE_RATIO = 0.35;
-const IDLE_MS = 3200;
 
 // Fullscreen arrows rather than a logo: what the button does is make this
-// video fill the screen, and that is what a viewer is looking for.
+// video fill the screen, and that is what a viewer is looking for. It stays
+// up for as long as the video is in view: on a phone there is no hover, and a
+// button that waited for a tap to appear was one most people never saw.
 const buildButton = () =>
   el('button', { class: 'badge', type: 'button', title: 'Fullscreen' }, [
     el('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [
@@ -28,8 +29,6 @@ export const createBadge = () => {
   let target = null;
   let frame = 0;
   let isMounted = false;
-  let isAwake = true;
-  let idleTimer = null;
 
   const isMostlyVisible = (rect) => {
     const visibleTop = Math.max(rect.top, 0);
@@ -59,7 +58,7 @@ export const createBadge = () => {
   // primary and calls hide(). Here we only stop drawing.
   const reposition = () => {
     frame = 0;
-    if (!target?.isConnected || !isAwake) {
+    if (!target?.isConnected) {
       conceal();
       return;
     }
@@ -80,32 +79,15 @@ export const createBadge = () => {
     frame = requestAnimationFrame(reposition);
   };
 
-  // Two buttons parked on somebody's video are two buttons in the way, so they
-  // step aside when nothing has happened for a moment and come back on the next
-  // touch anywhere on the page.
-  const sleep = () => {
-    idleTimer = null;
-    isAwake = false;
-    scheduleReposition();
-  };
-
-  const wake = () => {
-    isAwake = true;
-    if (idleTimer !== null) clearTimeout(idleTimer);
-    idleTimer = setTimeout(sleep, IDLE_MS);
-    scheduleReposition();
-  };
-
   const show = (video) => {
     target = video;
     if (!isMounted) {
       document.body.append(shell.host);
       window.addEventListener('scroll', scheduleReposition, true);
       window.addEventListener('resize', scheduleReposition);
-      document.addEventListener('pointerdown', wake, true);
       isMounted = true;
     }
-    wake();
+    scheduleReposition();
   };
 
   const hide = () => {
@@ -113,9 +95,6 @@ export const createBadge = () => {
     if (!isMounted) return;
     window.removeEventListener('scroll', scheduleReposition, true);
     window.removeEventListener('resize', scheduleReposition);
-    document.removeEventListener('pointerdown', wake, true);
-    if (idleTimer !== null) clearTimeout(idleTimer);
-    idleTimer = null;
     if (frame !== 0) cancelAnimationFrame(frame);
     frame = 0;
     shell.host.remove();
@@ -127,7 +106,6 @@ export const createBadge = () => {
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    wake();
     if (target && api.onActivate) api.onActivate(target);
   });
 
