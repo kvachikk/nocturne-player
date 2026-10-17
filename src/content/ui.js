@@ -26,13 +26,13 @@ const REWIND_SETTLE_MS = 90;
 const REWIND_STALL_MS = 600;
 const TOAST_MS = 900;
 const HINT_MS = 2200;
-// Back is the button that undoes a line of dialogue you missed, forward the
-// one that jumps an opening — they are not the same distance.
-const SKIP_BACK_SECONDS = 5;
-const SKIP_FORWARD_SECONDS = 10;
+// The same distance both ways, as on every other phone player: five seconds
+// back was too short to be worth a tap, and the button is not one people
+// expect to count differently from its twin.
+const SKIP_SECONDS = 10;
 const SIDE_SKIP_SECONDS = {
-  [ZONE.HOLD_LEFT]: -SKIP_BACK_SECONDS,
-  [ZONE.HOLD_RIGHT]: SKIP_FORWARD_SECONDS,
+  [ZONE.HOLD_LEFT]: -SKIP_SECONDS,
+  [ZONE.HOLD_RIGHT]: SKIP_SECONDS,
 };
 const PLAYLIST_SETTLE_MS = 600;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
@@ -435,9 +435,9 @@ export const createOverlay = ({
   };
 
   const centreRow = el('div', { class: 'centre-row' }, [
-    buildSkipButton(-SKIP_BACK_SECONDS),
+    buildSkipButton(-SKIP_SECONDS),
     buttons.play,
-    buildSkipButton(SKIP_FORWARD_SECONDS),
+    buildSkipButton(SKIP_SECONDS),
   ]);
 
   buttons.colour = buildButton('Colour', buildPaletteIcon(), () => {
