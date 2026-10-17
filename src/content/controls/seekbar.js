@@ -25,7 +25,8 @@ export const createSeekBar = (video, seek) => {
   const remaining = el('span', { class: 'time', text: '--:--' });
   const fill = el('div', { class: 'seek-fill' });
   const marks = el('div', { class: 'seek-marks' });
-  const track = el('div', { class: 'seek-track' }, [fill, marks]);
+  const zones = el('div', { class: 'seek-zones' });
+  const track = el('div', { class: 'seek-track' }, [fill, zones, marks]);
   const headTime = el('span', { class: 'seek-time', text: '0:00' });
   const area = el('div', { class: 'seek-area' }, [track, headTime]);
   const chapterLabel = el('div', { class: 'chapter' });
@@ -39,6 +40,7 @@ export const createSeekBar = (video, seek) => {
   let lastPreviewAt = 0;
   let chapters = [];
   let arePlaced = false;
+  let spans = [];
 
   const duration = () => (Number.isFinite(video.duration) ? video.duration : 0);
 
@@ -56,6 +58,20 @@ export const createSeekBar = (video, seek) => {
       });
     marks.replaceChildren(...dividers);
     arePlaced = true;
+  };
+
+  // Stretches of the film painted onto the track — the opening, once it has
+  // been recognised — redrawn whenever the length of the film is learned.
+  const placeZones = () => {
+    const total = duration();
+    if (total === 0) return;
+    const drawn = spans.map((span) => {
+      const zone = el('span', { class: 'seek-zone' });
+      zone.style.left = `${(span.start / total) * 100}%`;
+      zone.style.width = `${((span.end - span.start) / total) * 100}%`;
+      return zone;
+    });
+    zones.replaceChildren(...drawn);
   };
 
   const showChapter = (time) => {
@@ -128,6 +144,7 @@ export const createSeekBar = (video, seek) => {
 
   video.addEventListener('timeupdate', sync);
   video.addEventListener('durationchange', sync);
+  video.addEventListener('durationchange', placeZones);
   video.addEventListener('seeked', sync);
   sync();
 
@@ -136,6 +153,10 @@ export const createSeekBar = (video, seek) => {
     start,
     move,
     end,
+    setZones: (list) => {
+      spans = list;
+      placeZones();
+    },
     setChapters: (list) => {
       chapters = list;
       arePlaced = false;
@@ -145,6 +166,7 @@ export const createSeekBar = (video, seek) => {
     destroy: () => {
       video.removeEventListener('timeupdate', sync);
       video.removeEventListener('durationchange', sync);
+      video.removeEventListener('durationchange', placeZones);
       video.removeEventListener('seeked', sync);
     },
   };

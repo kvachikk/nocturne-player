@@ -4,6 +4,7 @@ import {
   resetSettings,
   setHostEnabled,
 } from '../lib/settings.js';
+import { clearIntroStore } from '../lib/introstore.js';
 
 const hostLabel = document.getElementById('site-host');
 const enabledToggle = document.getElementById('site-enabled');
@@ -63,10 +64,13 @@ const render = async () => {
   statusLine.textContent = await describeVideo(tab);
 };
 
+// A reset forgets the learned openings too: it is the one button that puts
+// the add-on back the way it was installed.
 resetButton.addEventListener('click', async () => {
   await resetSettings();
+  await clearIntroStore();
   await render();
-  statusLine.textContent = 'Settings reset to defaults.';
+  statusLine.textContent = 'Settings and learned intros reset.';
 });
 
 render();

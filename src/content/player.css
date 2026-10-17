@@ -288,6 +288,21 @@
   overflow: hidden;
 }
 
+/* The opening, once recognised, in a colour of its own: where it is and how
+   long it runs, at a glance, before deciding whether to sit through it. */
+.seek-zones {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seek-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgb(255 190 92 / 78%);
+}
+
 /* Chapter dividers sit inside the track, so the fill runs under them. */
 .seek-marks {
   position: absolute;
@@ -499,6 +514,53 @@
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* Sits above the right end of the seek bar, where a thumb already is with
+   the phone on its side, and stays up with or without the controls. */
+.intro-skip {
+  position: absolute;
+  right: max(30px, env(safe-area-inset-right));
+  bottom: calc(var(--seek-lift) + 64px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 14px 11px 18px;
+  border: 0;
+  border-radius: 14px;
+  background: rgb(20 19 26 / 72%);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(18px);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(10px);
+  transition:
+    opacity 220ms var(--ease),
+    transform 280ms var(--ease);
+}
+
+.intro-skip.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.intro-skip:active {
+  transform: scale(0.95);
+}
+
+.intro-skip svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Kept clear of the volume strip that runs down the right edge. */
@@ -950,7 +1012,8 @@
     transition-duration: 1ms;
   }
 
-  .skip-feedback {
+  .skip-feedback,
+  .intro-skip {
     transition-duration: 1ms;
   }
 
