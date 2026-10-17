@@ -37,6 +37,34 @@ const SIDE_SKIP_SECONDS = {
 const PLAYLIST_SETTLE_MS = 600;
 const CHAPTER_TRIES_MS = [1200, 4000, 10000];
 
+// A gear with eight teeth, worked out rather than pasted: drawn by hand the
+// path runs to six hundred characters that nobody can check by eye.
+const GEAR = { teeth: 8, outer: 9.6, root: 7.4, tip: 9, base: 14, hub: 3 };
+
+const gearPoint = (radius, degrees) => {
+  const angle = ((degrees - 90) * Math.PI) / 180;
+  const x = 12 + radius * Math.cos(angle);
+  const y = 12 + radius * Math.sin(angle);
+  return `${x.toFixed(2)} ${y.toFixed(2)}`;
+};
+
+const buildGearPath = () => {
+  const { teeth, outer, root, tip, base, hub } = GEAR;
+  const parts = [];
+  for (let index = 0; index < teeth; index++) {
+    const centre = (index * 360) / teeth;
+    const start = gearPoint(root, centre - base);
+    parts.push(index === 0 ? `M${start}` : `A${root} ${root} 0 0 1 ${start}`);
+    parts.push(`L${gearPoint(outer, centre - tip)}`);
+    parts.push(`A${outer} ${outer} 0 0 1 ${gearPoint(outer, centre + tip)}`);
+    parts.push(`L${gearPoint(root, centre + base)}`);
+  }
+  parts.push(`A${root} ${root} 0 0 1 ${gearPoint(root, -base)}Z`);
+  parts.push(`M${12 + hub} 12a${hub} ${hub} 0 1 1-${hub * 2} 0`);
+  parts.push(` ${hub} ${hub} 0 1 1 ${hub * 2} 0z`);
+  return parts.join('');
+};
+
 const ICON = {
   exit: 'M6 6l12 12M18 6L6 18',
   chevron: 'M7 10l5 5 5-5',
@@ -44,7 +72,7 @@ const ICON = {
     'M12 3c-5 0-9 3.7-9 8.4 0 4.9 4 8.6 8.7 8.6 1.4 0 2.1-.9 2.1-1.9 ' +
     '0-.6-.3-1-.6-1.4-.3-.4-.6-.8-.6-1.4 0-1 .8-1.8 1.8-1.8H16 ' +
     'c2.8 0 5-2.2 5-5C21 6.5 17 3 12 3z',
-  menu: 'M4 7h16M4 12h16M4 17h16',
+  settings: buildGearPath(),
   play: 'M8 5 19 12 8 19z',
   fullscreen: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
   pause: 'M6 5h3.6v14H6zM14.4 5h3.6v14h-3.6z',
@@ -420,7 +448,7 @@ export const createOverlay = ({
     setChromeVisible(true);
   });
 
-  buttons.menu = buildButton('Settings', ICON.menu, () => {
+  buttons.menu = buildButton('Settings', ICON.settings, () => {
     colorPanel.close();
     buttons.colour.setAttribute('aria-pressed', 'false');
     menu.toggle();
