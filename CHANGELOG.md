@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.8.2][] - 2026-10-17
+
+### Changed
+
+- The settings button is a gear instead of three bars.
+- The fullscreen button on an inline video stays visible while the video is
+  in view, instead of fading out and waiting for a tap.
+
 ## [0.8.1][] - 2026-09-27
 
 ### Fixed
@@ -320,7 +328,8 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.8.1...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.2
 [0.8.1]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.1
 [0.8.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.0
 [0.7.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.7.0
