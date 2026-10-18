@@ -2,18 +2,17 @@
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![No data collected](https://img.shields.io/badge/data%20collected-none-brightgreen.svg)](PRIVACY.md)
 
-# Nocturne Player
-
-A touch-first video player for Firefox on Android. No accounts, no telemetry,
-no network access.
-
 ### Default browser player:
 
 <img width="2856" height="1280" alt="default" src="https://github.com/user-attachments/assets/971f9017-4d59-406a-bff8-cce5e8c96229" />
 
-### Nocturne Player:
+### This Player:
 
-<img width="2856" height="1280" alt="better" src="https://github.com/user-attachments/assets/d70cf98b-1fc4-47b4-baf7-918c924103f0" />
+<img width="2560" height="1147" alt="image" src="https://github.com/user-attachments/assets/739d01a8-7592-43e8-a7ba-e8ce2950718a" />
+
+<img width="2560" height="1147" alt="image" src="https://github.com/user-attachments/assets/bb180257-44ac-4c46-a0e8-94551d936327" />
+
+<img width="2560" height="1147" alt="image" src="https://github.com/user-attachments/assets/fd545609-f1e6-4d7f-895a-353c924992e9" />
 
 Works on any site that plays a plain `<video>`, and on YouTube.
 
