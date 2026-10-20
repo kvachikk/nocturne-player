@@ -111,85 +111,61 @@
 }
 
 /* The playlist sits next to the way out, where a thumb reaches it with the
-   phone held sideways: one dropdown per step of the path the site keeps, laid
-   out the way the site itself reads them — the season, then the episode. */
-.playlist-bar {
+   phone held sideways: one quiet button that names where in the series the
+   film is, the way the site itself reads it — the season, then the episode. */
+.playlist-button {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+  max-width: 38vw;
+  height: 32px;
+  padding: 0 8px 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(118, 118, 128, 0.32);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 200ms var(--ease),
+    transform 200ms var(--ease);
 }
 
-.playlist-bar.is-empty {
+.playlist-button.is-empty {
   display: none;
 }
 
-.playlist-pick {
-  position: relative;
+.playlist-button:active {
+  transform: scale(0.95);
 }
 
-.playlist-value {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  max-width: 34vw;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: rgb(255 255 255 / 12%);
-  color: inherit;
-  font: inherit;
-  font-size: 13px;
+.playlist-button[aria-pressed='true'] {
+  background: #636366;
 }
 
-.playlist-value svg {
+.playlist-button svg {
   width: 16px;
   height: 16px;
   flex: none;
+  fill: none;
+  stroke: rgba(235, 235, 245, 0.6);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 260ms var(--ease);
+}
+
+.playlist-button[aria-pressed='true'] svg {
+  transform: rotate(180deg);
 }
 
 .playlist-current {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-/* The list hangs under the value it belongs to, and is allowed to scroll:
-   a season can run to twenty-odd episodes and the screen is short. */
-.playlist-list {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 2;
-  display: flex;
-  overflow-y: auto;
-  flex-direction: column;
-  min-width: 100%;
-  max-height: 52vh;
-  padding: 4px;
-  border-radius: 10px;
-  background: rgb(18 18 20 / 96%);
-  gap: 2px;
-}
-
-.playlist-list[hidden] {
-  display: none;
-}
-
-.playlist-option {
-  padding: 9px 14px;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 14px;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.playlist-option.is-current {
-  background: rgb(255 255 255 / 16%);
 }
 
 .spacer {
@@ -809,6 +785,30 @@
   stroke-linejoin: round;
 }
 
+/* The sheet hangs under the button that opens it, on the side of the way
+   out, rather than under the settings gear across the screen. */
+.playlist-panel {
+  left: max(30px, env(safe-area-inset-left));
+  right: auto;
+  transform-origin: top left;
+}
+
+.menu-cell.is-current {
+  font-weight: 600;
+}
+
+/* The tick of an iOS list, in the same green as the switch. */
+.menu-cell-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #34c759;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* The iOS switch: a pill that turns green, a white knob that slides across. */
 .switch {
   position: relative;
@@ -1005,6 +1005,7 @@
   .cue,
   .button,
   .chip,
+  .playlist-button,
   .step-button,
   .play-button,
   .skip-button,

@@ -18,7 +18,7 @@ const buildChipRow = (label, extra = []) => {
   return { row, chips };
 };
 
-const paintChips = (holder, options, onSelect) => {
+export const paintChips = (holder, options, onSelect) => {
   const chips = options.map((option) =>
     el('button', {
       class: 'chip',

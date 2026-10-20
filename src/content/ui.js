@@ -1,6 +1,7 @@
 import { readSiteChapters } from './video/chapters.js';
 import { createColorPanel } from './controls/colorpanel.js';
 import { createMenu } from './controls/menu.js';
+import { createPlaylistPanel } from './controls/playlistpanel.js';
 import { createAudioTracks } from './video/audiotracks.js';
 import { createPlaylist } from './video/playlist.js';
 import { createQuality } from './video/quality.js';
@@ -174,6 +175,7 @@ export const createOverlay = ({
     exit: null,
     colour: null,
     menu: null,
+    playlist: null,
     play: null,
     fullscreen: null,
   };
@@ -284,6 +286,7 @@ export const createOverlay = ({
     if (!isVisible || video.paused || isPanelOpen()) return;
     chromeTimer = setTimeout(() => {
       chromeTimer = null;
+      if (isPanelOpen()) return;
       chrome.toggleAttribute('hidden', true);
     }, CHROME_IDLE_MS);
   };
@@ -292,10 +295,32 @@ export const createOverlay = ({
     playlistRef.close();
     colorPanel.close();
     menu.close();
+    buttons.playlist?.setAttribute('aria-pressed', 'false');
     buttons.colour?.setAttribute('aria-pressed', 'false');
     buttons.menu?.setAttribute('aria-pressed', 'false');
     setChromeVisible(true);
   };
+
+  const playlistPanel = createPlaylistPanel({
+    onSelect: (level, option, isEpisode) => {
+      // A season is half an answer: the sheet stays up until the episode in
+      // it has been picked.
+      if (isEpisode) {
+        playlistPanel.close();
+        buttons.playlist.setAttribute('aria-pressed', 'false');
+      }
+      playlist.select(level, option);
+      // The player rewrites its own path as it switches, so the sheet is read
+      // again rather than guessing what the press will have done — once now,
+      // on the way back into the controls, and once more after the step it
+      // had to fetch has landed.
+      setChromeVisible(true);
+      setTimeout(() => playlistRef.refresh(), PLAYLIST_SETTLE_MS);
+    },
+  });
+
+  playlistRef.isOpen = playlistPanel.isOpen;
+  playlistRef.close = playlistPanel.close;
 
   const togglePlay = () => {
     if (video.paused) video.play().catch(() => {});
@@ -459,7 +484,9 @@ export const createOverlay = ({
 
   buttons.colour = buildButton('Colour', buildPaletteIcon(), () => {
     menu.close();
+    playlistPanel.close();
     buttons.menu.setAttribute('aria-pressed', 'false');
+    buttons.playlist.setAttribute('aria-pressed', 'false');
     colorPanel.toggle();
     buttons.colour.setAttribute('aria-pressed', String(colorPanel.isOpen()));
     setChromeVisible(true);
@@ -467,7 +494,9 @@ export const createOverlay = ({
 
   buttons.menu = buildButton('Settings', ICON.settings, () => {
     colorPanel.close();
+    playlistPanel.close();
     buttons.colour.setAttribute('aria-pressed', 'false');
+    buttons.playlist.setAttribute('aria-pressed', 'false');
     menu.toggle();
     buttons.menu.setAttribute('aria-pressed', String(menu.isOpen()));
     setChromeVisible(true);
@@ -475,63 +504,39 @@ export const createOverlay = ({
 
   // The playlist sits where a thumb reaches it while the phone is held
   // sideways — beside the way out, not buried in the settings sheet, which is
-  // no place to be changing episode from. One dropdown per step of the path
-  // the player itself keeps: the season, then the episode.
-  const playlistBar = el('div', { class: 'playlist-bar' });
-
-  const closePlaylistLists = () => {
-    for (const list of playlistBar.querySelectorAll('.playlist-list')) {
-      list.toggleAttribute('hidden', true);
-    }
-  };
-
-  const buildPlaylistPick = (level, index) => {
-    const list = el('div', { class: 'playlist-list', hidden: '' });
-    const value = el('button', { class: 'playlist-value', type: 'button' }, [
-      el('span', { class: 'playlist-current' }, [level.current]),
-      buildIcon(ICON.chevron),
-    ]);
-
-    value.addEventListener('click', () => {
-      const wasOpen = !list.hasAttribute('hidden');
-      closePlaylistLists();
-      list.toggleAttribute('hidden', wasOpen);
-    });
-
-    for (const [option, label] of level.labels.entries()) {
-      const isCurrent = label === level.current;
-      const attributes = {
-        class: isCurrent ? 'playlist-option is-current' : 'playlist-option',
-        type: 'button',
-      };
-      const entry = el('button', attributes, [label]);
-      entry.addEventListener('click', () => {
-        closePlaylistLists();
-        playlist.select(index, option);
-        // The player rewrites its own path as it switches, so the bar is read
-        // again rather than guessing what the press will have done — once now,
-        // and once more after the step it had to fetch has landed.
-        playlistRef.refresh();
-        setTimeout(() => playlistRef.refresh(), PLAYLIST_SETTLE_MS);
-      });
-      list.append(entry);
-    }
-
-    return el('div', { class: 'playlist-pick' }, [value, list]);
-  };
+  // no place to be changing episode from. The button names where in the series
+  // the film is; the sheet it opens is where another episode is picked.
+  const playlistLabel = el('span', { class: 'playlist-current' });
+  buttons.playlist = el(
+    'button',
+    { class: 'playlist-button', type: 'button', title: 'Episodes' },
+    [playlistLabel, buildIcon(ICON.chevron)],
+  );
+  buttons.playlist.addEventListener('click', () => {
+    colorPanel.close();
+    menu.close();
+    buttons.colour.setAttribute('aria-pressed', 'false');
+    buttons.menu.setAttribute('aria-pressed', 'false');
+    playlistPanel.toggle();
+    const isOpen = playlistPanel.isOpen();
+    buttons.playlist.setAttribute('aria-pressed', String(isOpen));
+    setChromeVisible(true);
+  });
 
   // A series only admits to having a playlist once its player has drawn one, so
-  // the bar appears when there is something to choose from and stays away when
-  // the page is a film.
+  // the button appears when there is something to choose from and stays away
+  // when the page is a film.
   playlistRef.refresh = () => {
     playlist.refresh();
     const levels = playlist.getLevels();
-    playlistBar.replaceChildren(...levels.map(buildPlaylistPick));
-    playlistBar.classList.toggle('is-empty', levels.length === 0);
+    const path = levels.map((level) => level.current);
+    playlistLabel.textContent = path.join(' · ');
+    buttons.playlist.classList.toggle('is-empty', levels.length === 0);
+    playlistPanel.setLevels(levels);
+    if (levels.length === 0) {
+      buttons.playlist.setAttribute('aria-pressed', 'false');
+    }
   };
-  playlistRef.isOpen = () =>
-    playlistBar.querySelector('.playlist-list:not([hidden])') !== null;
-  playlistRef.close = closePlaylistLists;
   playlistRef.refresh();
 
   buttons.exit = buildButton('Exit player', ICON.exit, () => onExit());
@@ -540,13 +545,18 @@ export const createOverlay = ({
     setChromeVisible(false);
   });
 
-  const fullOnly = [buttons.exit, playlistBar, buttons.colour, buttons.menu];
+  const fullOnly = [
+    buttons.exit,
+    buttons.playlist,
+    buttons.colour,
+    buttons.menu,
+  ];
   for (const node of fullOnly) node.classList.add('is-full-only');
   buttons.fullscreen.classList.add('is-windowed-only');
 
   topbar.append(
     buttons.exit,
-    playlistBar,
+    buttons.playlist,
     el('div', { class: 'spacer' }),
     buttons.colour,
     buttons.menu,
@@ -569,6 +579,7 @@ export const createOverlay = ({
     centreRow,
     colorPanel.root,
     menu.root,
+    playlistPanel.root,
     seekBar.root,
   );
 
