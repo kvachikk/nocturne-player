@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.9.1][] - 2026-10-20
+
+### Changed
+
+- Seasons and episodes open in a sheet styled like the settings: seasons as a
+  segmented control, episodes as a list with a tick by the one playing. The
+  top bar shows a single button naming where you are.
+- Picking a season keeps the sheet open; picking an episode closes it.
+- The controls no longer fade out while a sheet is open.
+
 ## [0.9.0][] - 2026-10-17
 
 ### Added
@@ -353,7 +363,8 @@ First release submitted to addons.mozilla.org.
   There is no sound while scrubbing.
 - Volume is left to the phone's own buttons.
 
-[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.9.0...HEAD
+[unreleased]: https://github.com/kvachikk/nocturne-player/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.9.1
 [0.9.0]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.9.0
 [0.8.2]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.2
 [0.8.1]: https://github.com/kvachikk/nocturne-player/releases/tag/v0.8.1
